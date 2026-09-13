@@ -1,0 +1,1425 @@
+/* ══════════════════════════════════════════════════════════════════
+   Gestão de Demandas — naSala
+   Sistema visual. Referência: Apple HIG (Foundations) traduzida para web.
+
+   Regras que este arquivo mantém:
+   · Uma cor = um significado. Cor de sinal (status/prazo) nunca é
+     reaproveitada para porte, casa ou decoração.
+   · Todo par texto/fundo passa de 4.5:1 nos dois temas (números no
+     comentário de cada token).
+   · Tamanhos em rem: o app acompanha o corpo de texto do navegador.
+   · Texto nunca abaixo de 11px no tamanho padrão.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 1. tokens ───────────────────────────────────────────────────── */
+
+:root{
+  color-scheme:light;
+
+  /* escala tipográfica (1rem = corpo do navegador, normalmente 16px) */
+  --t-xs:.6875rem;   /* 11px — etiquetas, contadores */
+  --t-sm:.75rem;     /* 12px — meta, legendas */
+  --t-md:.8125rem;   /* 13px — corpo */
+  --t-lg:.9375rem;   /* 15px — título de card */
+  --t-xl:1.375rem;   /* 22px — título da página */
+  --t-2xl:1.75rem;   /* 28px — número principal */
+
+  /* raios e espaço */
+  --r-xs:6px; --r-sm:9px; --r-md:12px; --r-lg:16px; --r-xl:20px; --r-pill:999px;
+  --gut:24px;                  /* respiro lateral do conteúdo */
+  --maxw:920px;
+  --hair:.5px;
+
+  /* superfícies */
+  --bg:#F7F7F9;                /* fundo da página */
+  --surf:#FFFFFF;              /* card / superfície elevada */
+  --surf2:#F2F2F5;             /* campo rebaixado */
+  --surf3:#E8E8EC;             /* hover de campo */
+  --line:rgba(60,60,67,.14);   /* fio */
+  --line2:rgba(60,60,67,.26);  /* fio de ênfase */
+  --hdr:rgba(247,247,249,.82); /* camada flutuante (leva blur) */
+  --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 28px rgba(0,0,0,.07);
+
+  /* tinta */
+  --tx:#111113;                /* 18.9:1 sobre --surf */
+  --txs:rgba(60,60,67,.76);    /* 5.3:1 sobre --surf · 5.1:1 sobre --bg */
+  --txt:rgba(60,60,67,.40);    /* SÓ traço decorativo — nunca texto */
+
+  /* sinais: -i = tinta (texto/ícone), -t = tinta de fundo, base = preenchimento */
+  --grn:#34C759;  --grn-i:#1A6E2E;  --grn-t:rgba(52,199,89,.12);   /* 5.2–5.7:1 */
+  --org:#FF9500;  --org-i:#A34A00;  --org-t:rgba(255,149,0,.13);   /* 4.8–5.3:1 */
+  --red:#FF3B30;  --red-i:#B81C14;  --red-t:rgba(255,59,48,.12);   /* 5.0–5.6:1 */
+  --acc:#007AFF;  --acc-i:#0062CC;  --acc-t:rgba(0,122,255,.11);   /* 4.5–5.0:1 */
+  --pur:#AF52DE;  --pur-i:#8944AB;  --pur-t:rgba(175,82,222,.12);  /* 4.7–5.2:1 */
+  --acc-solid:#0062CC;         /* branco sobre ele: 5.8:1 */
+  --red-solid:#B81C14;         /* branco sobre ele: 6.5:1 */
+
+  /* MATERIAL — vidro. Só a camada flutuante usa: barra do topo, menu,
+     janelas e o indicador de sync. Card de demanda NÃO usa: vidro no
+     conteúdo embaralha a hierarquia que o vidro existe para criar. */
+  --glass:rgba(255,255,255,.70);       /* barra, menu, avisos */
+  --glass-thick:rgba(255,255,255,.94); /* janelas: muito texto em cima */
+  --glass-veil:rgba(255,255,255,.55);  /* segunda camada de vidro */
+  --glass-card:rgba(255,255,255,.74);  /* card aberto */
+  --glass-card-2:rgba(255,255,255,.42);/* card entregue: mais fino, recua */
+  --blob-1:#D5DCE8; --blob-2:#E4DFEC; --blob-3:#DCE4E0; --ground:#F4F5F8;
+  --glass-blur:saturate(180%) blur(30px);
+  --glass-blur-deep:saturate(180%) blur(48px);
+  --glass-edge:rgba(255,255,255,.85);   /* fio de luz na borda de cima */
+  --glass-shadow:0 1px 2px rgba(0,0,0,.05), 0 16px 44px -12px rgba(0,0,0,.16);
+
+  /* BRILHO — é estado, nunca enfeite: foco, ação primária, atraso.
+     São sombras coloridas; não alteram contraste de texto. */
+  --glow-acc:0 0 0 1px rgba(0,98,204,.30), 0 6px 20px -6px rgba(0,122,255,.50);
+  --glow-red:0 4px 16px -6px rgba(255,59,48,.62);
+  --glow-late:0 0 0 1px rgba(255,59,48,.16), 0 2px 14px -6px rgba(255,59,48,.34);
+  --red-edge:rgba(255,59,48,.26);
+  --glow-focus:0 0 0 4px rgba(0,122,255,.20);
+
+  /* MOVIMENTO — breve e preciso. Nada anima numa interação frequente. */
+  --dur-1:.14s; --dur-2:.22s; --dur-3:.36s;
+  --ease:cubic-bezier(.2,.9,.3,1);
+}
+
+/* tema escuro: automático pelo sistema… */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#000000; --surf:#1C1C1E; --surf2:#252527; --surf3:#303032;
+    --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.20);
+    --hdr:rgba(10,10,12,.74);
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.5);
+    --tx:#F5F5F7;                 /* 15.6:1 sobre --surf */
+    --txs:rgba(235,235,245,.65);  /* 6.8:1 sobre --surf · 7.4:1 sobre --bg */
+    --txt:rgba(235,235,245,.35);
+    --grn:#30D158; --grn-i:#30D158; --grn-t:rgba(48,209,88,.16);   /* 5.5–8.4:1 */
+    --org:#FF9F0A; --org-i:#FF9F0A; --org-t:rgba(255,159,10,.16);  /* 5.4–8.3:1 */
+    --red:#FF453A; --red-i:#FF7B73; --red-t:rgba(255,69,58,.18);   /* 4.9–7.1:1 */
+    --acc:#0A84FF; --acc-i:#4DA3FF; --acc-t:rgba(10,132,255,.18);  /* 4.7–6.8:1 */
+    --pur:#BF5AF2; --pur-i:#DA8FFF; --pur-t:rgba(191,90,242,.16);  /* 5.6–8.1:1 */
+    --acc-solid:#0B6FD6;          /* branco sobre ele: 4.9:1 */
+    --red-solid:#B81C14;
+    --glass:rgba(28,28,30,.66);
+    --glass-thick:rgba(28,28,30,.94);
+    --glass-veil:rgba(22,22,25,.55);
+    --glass-card:rgba(34,34,37,.62);
+    --glass-card-2:rgba(34,34,37,.30);
+    --blob-1:#232329; --blob-2:#2C2C34; --blob-3:#141418; --ground:#08080A;
+    --glass-edge:rgba(255,255,255,.12);
+    --glass-shadow:0 1px 2px rgba(0,0,0,.5), 0 20px 52px -14px rgba(0,0,0,.72);
+    --glow-acc:0 0 0 1px rgba(77,163,255,.34), 0 6px 22px -6px rgba(10,132,255,.60);
+    --glow-red:0 4px 18px -6px rgba(255,69,58,.70);
+    --glow-late:0 0 0 1px rgba(255,69,58,.20), 0 2px 16px -6px rgba(255,69,58,.42);
+    --red-edge:rgba(255,69,58,.30);
+    --glow-focus:0 0 0 4px rgba(10,132,255,.26);
+  }
+}
+/* …e pela escolha explícita, que vence o sistema nos dois sentidos. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#000000; --surf:#1C1C1E; --surf2:#252527; --surf3:#303032;
+  --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.20);
+  --hdr:rgba(10,10,12,.74);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 36px rgba(0,0,0,.5);
+  --tx:#F5F5F7; --txs:rgba(235,235,245,.65); --txt:rgba(235,235,245,.35);
+  --grn:#30D158; --grn-i:#30D158; --grn-t:rgba(48,209,88,.16);
+  --org:#FF9F0A; --org-i:#FF9F0A; --org-t:rgba(255,159,10,.16);
+  --red:#FF453A; --red-i:#FF7B73; --red-t:rgba(255,69,58,.18);
+  --acc:#0A84FF; --acc-i:#4DA3FF; --acc-t:rgba(10,132,255,.18);
+  --pur:#BF5AF2; --pur-i:#DA8FFF; --pur-t:rgba(191,90,242,.16);
+  --acc-solid:#0B6FD6; --red-solid:#B81C14;
+  --glass:rgba(28,28,30,.66);
+  --glass-thick:rgba(28,28,30,.94);
+  --glass-veil:rgba(22,22,25,.55);
+  --glass-card:rgba(34,34,37,.62);
+  --glass-card-2:rgba(34,34,37,.30);
+  --blob-1:#232329; --blob-2:#2C2C34; --blob-3:#141418; --ground:#08080A;
+  --glass-edge:rgba(255,255,255,.12);
+  --glass-shadow:0 1px 2px rgba(0,0,0,.5), 0 20px 52px -14px rgba(0,0,0,.72);
+  --glow-acc:0 0 0 1px rgba(77,163,255,.34), 0 6px 22px -6px rgba(10,132,255,.60);
+  --glow-red:0 4px 18px -6px rgba(255,69,58,.70);
+  --glow-late:0 0 0 1px rgba(255,69,58,.20), 0 2px 16px -6px rgba(255,69,58,.42);
+  --red-edge:rgba(255,69,58,.30);
+  --glow-focus:0 0 0 4px rgba(10,132,255,.26);
+}
+
+/* ── 2. base ─────────────────────────────────────────────────────── */
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+/* Fundo fluido: manchas grandes e suaves, sem filtro de desfoque — o próprio
+   gradiente radial já é o borrão, e sai de graça para a GPU. É ele que dá ao
+   vidro alguma coisa para refratar; sem fundo vivo, vidro vira cinza chapado. */
+body::before{
+  content:'';position:fixed;inset:-20%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(42% 38% at 18% 12%, var(--blob-1) 0%, transparent 62%),
+    radial-gradient(48% 42% at 82% 24%, var(--blob-2) 0%, transparent 64%),
+    radial-gradient(52% 46% at 62% 88%, var(--blob-3) 0%, transparent 66%),
+    var(--ground);
+  animation:drift 46s ease-in-out infinite alternate;
+}
+@keyframes drift{
+  0%  {transform:translate3d(0,0,0) scale(1)}
+  50% {transform:translate3d(1.5%,-1.5%,0) scale(1.06)}
+  100%{transform:translate3d(-1.5%,1%,0) scale(1.02)}
+}
+
+body{
+  background:var(--ground);
+  color:var(--tx);
+  font-family:-apple-system,'SF Pro Text',BlinkMacSystemFont,'Segoe UI','Helvetica Neue',sans-serif;
+  font-size:var(--t-md);
+  line-height:1.45;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:none;border:none;cursor:pointer}
+svg{display:block;flex-shrink:0}
+[hidden]{display:none!important}
+
+/* foco visível em tudo que é operável — o app inteiro é usável só pelo teclado */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid var(--acc);
+  outline-offset:2px;
+  border-radius:var(--r-xs);
+  box-shadow:var(--glow-focus);
+}
+
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+}
+/* o atalho de pular navegação tem de ficar visível quando recebe foco —
+   senão quem usa só teclado não sabe onde está */
+a.sr-only:focus-visible{
+  position:fixed;top:10px;left:10px;z-index:999;
+  width:auto;height:auto;clip:auto;margin:0;
+  padding:10px 16px;border-radius:var(--r-md);
+  background:var(--surf);color:var(--tx);
+  box-shadow:var(--shadow);text-decoration:none;font-weight:600;
+}
+
+/* preferências do sistema: movimento e transparência */
+@media (prefers-reduced-motion:reduce){
+  body::before{animation:none}
+  *,*::before,*::after{
+    animation-duration:.001ms!important;animation-iteration-count:1!important;
+    transition-duration:.001ms!important;scroll-behavior:auto!important;
+  }
+}
+/* Transparência reduzida: toda superfície de vidro vira sólida. O material é
+   enfeite funcional — o conteúdo tem de continuar legível sem ele. */
+@media (prefers-reduced-transparency:reduce){
+  body::before{display:none}
+  .card,.dock-bar,.dock-pop{
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    background:var(--surf)!important;
+  }
+  .card.is-done{background:var(--surf2)!important}
+  .topbar,.menu,.modal,.sync,.toast{
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  }
+  .topbar{background:var(--bg)!important}
+  .menu,.modal,.sync,.toast{background:var(--surf)!important}
+  .topbar::after{display:none}
+}
+
+/* ── 3. cabeçalho (camada flutuante) ─────────────────────────────── */
+
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:var(--glass);
+  border-bottom:var(--hair) solid var(--line);
+  backdrop-filter:var(--glass-blur);
+  -webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:inset 0 1px 0 var(--glass-edge);
+}
+/* Esmaecido de borda: o conteúdo se dissolve ao encontrar a barra em vez de
+   bater nela. É o que faz o vidro parecer flutuar sobre a lista. */
+.topbar::after{
+  content:'';position:absolute;left:0;right:0;top:100%;height:14px;
+  background:linear-gradient(to bottom,var(--bg),transparent);
+  pointer-events:none;
+}
+/* Largo:  [marca]            [ações]        Estreito:  [marca]
+            título                                       título
+                                                         [ações] */
+.topbar-inner{
+  max-width:var(--maxw);margin:0 auto;
+  padding-block:14px 12px;padding-inline:var(--gut);
+  display:grid;grid-template-columns:auto 1fr;
+  grid-template-areas:"brand actions" "title title";
+  align-items:center;row-gap:10px;
+}
+.brand-row{grid-area:brand;display:flex;align-items:center}
+.actions{grid-area:actions;justify-self:end}
+.title-wrap{grid-area:title}
+/* marca da casa-mãe: presente, não protagonista */
+.brand-mark{height:19px;width:auto;color:var(--tx);opacity:.9}
+.narrow-only{display:none}
+
+.title-wrap{display:flex;align-items:center;gap:6px;min-width:0}
+.actions .btn{flex-shrink:0}
+.title-display{
+  font-size:var(--t-xl);font-weight:700;letter-spacing:-.022em;
+  line-height:1.15;color:var(--tx);
+}
+.title-input{
+  font-size:var(--t-xl);font-weight:700;letter-spacing:-.022em;color:var(--tx);
+  background:transparent;border:none;border-bottom:2px solid var(--acc);
+  outline:none;width:min(320px,60vw);display:none;
+}
+.icon-btn{
+  width:30px;height:30px;border-radius:var(--r-xs);
+  color:var(--txs);display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s;
+}
+.icon-btn:hover{background:var(--surf2);color:var(--tx)}
+
+/* ── 4. botões ───────────────────────────────────────────────────── */
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  min-height:32px;padding:0 13px;border-radius:var(--r-pill);
+  background:var(--surf);border:var(--hair) solid var(--line);
+  font-size:var(--t-sm);font-weight:500;color:var(--txs);
+  white-space:nowrap;transition:background .16s,color .16s,border-color .16s;
+}
+.btn:hover{background:var(--surf2);color:var(--tx);border-color:var(--line2)}
+.btn[aria-pressed="true"],.btn.on{
+  background:var(--acc-t);border-color:transparent;
+  box-shadow:inset 0 0 0 1px var(--acc-i);color:var(--acc-i);font-weight:600;
+}
+.btn-primary{
+  background:var(--acc-solid);border-color:transparent;color:#fff;
+  font-weight:600;padding:0 15px;
+  box-shadow:var(--glow-acc);
+}
+.btn-primary:hover{background:var(--acc-solid);color:#fff;filter:brightness(1.12)}
+.btn-primary:active{transform:scale(.97)}
+
+/* Três grupos, no máximo — vista, conta, ação primária — com espaço fixo
+   entre eles. A orientação avisa que botões com rótulo de texto encostados
+   um no outro "may appear to run together, making the buttons
+   indistinguishable"; o espaço entre grupos é o que os separa. */
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* Contêiner do grupo: é ELE que dá a borda, então os símbolos dentro não têm.
+   Raio concêntrico — o item interno usa o raio do grupo menos o respiro. */
+.tb-group{
+  display:inline-flex;align-items:center;gap:2px;flex-shrink:0;
+  padding:2px;border-radius:var(--r-pill);
+  background:var(--surf);border:var(--hair) solid var(--line);
+  transition:border-color var(--dur-1) var(--ease);
+}
+.tb-group:hover{border-color:var(--line2)}
+.tb-item{
+  width:32px;height:32px;border-radius:var(--r-pill);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txs);
+  transition:background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.tb-item:hover{background:var(--surf2);color:var(--tx)}
+.tb-item[aria-pressed="true"]{background:var(--acc-t);color:var(--acc-i)}
+.tb-div{width:var(--hair);height:18px;background:var(--line);flex-shrink:0;margin:0 1px}
+
+/* O nome do botão aparece no hover e no foco. Símbolo sozinho é rápido para
+   quem já sabe; o rótulo é para quem ainda não sabe. */
+.tb-item{position:relative}
+.tb-item::after{
+  content:attr(aria-label);
+  position:absolute;top:calc(100% + 8px);left:50%;
+  padding:5px 10px;border-radius:var(--r-sm);white-space:nowrap;
+  background:var(--tx);color:var(--bg);
+  font-size:var(--t-xs);font-weight:600;letter-spacing:.01em;
+  opacity:0;transform:translate(-50%,-4px);pointer-events:none;
+  transition:opacity var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+  transition-delay:.25s;
+}
+.tb-item:hover::after,.tb-item:focus-visible::after{opacity:1;transform:translate(-50%,0)}
+
+/* menu "mais" */
+.menu-wrap{position:relative}
+.menu{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:120;min-width:216px;
+  background:var(--glass);border:var(--hair) solid var(--line2);
+  border-radius:var(--r-md);padding:5px;
+  backdrop-filter:var(--glass-blur-deep);-webkit-backdrop-filter:var(--glass-blur-deep);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+  animation:menuIn var(--dur-1) var(--ease) both;
+  /* `position:absolute` acima é o que tira o menu do fluxo. NÃO declarar
+     position de novo aqui: um `relative` no fim da regra vence o absolute e
+     o menu volta a ocupar espaço, empurrando o cabeçalho inteiro.
+     Absolute já serve de bloco de contenção para o ::before com inset:0. */
+  isolation:isolate;
+}
+/* segunda camada, para o menu da conta não deixar ler o conteúdo por baixo */
+.menu::before{
+  content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;
+  background:var(--glass-veil);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+}
+@keyframes menuIn{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+.menu button{
+  display:flex;align-items:center;gap:9px;width:100%;
+  min-height:36px;padding:0 10px;
+  /* concêntrico: raio do menu (12) menos o respiro (5) */
+  border-radius:7px;
+  font-size:var(--t-md);color:var(--tx);text-align:left;
+}
+.menu button:hover{background:var(--surf2)}
+.menu button svg{color:var(--txs)}
+.menu-sep{height:var(--hair);background:var(--line);margin:5px 8px}
+
+/* ── 5. situação das demandas ────────────────────────────────────────
+   As fichas são CONTROLE: cada uma filtra a lista. A proporção mudou-se para
+   o Painel, onde pode ser gráfico de verdade; aqui sobra o que é ação. */
+
+.state{margin-bottom:18px}
+
+/* fichas: ponto + número + palavra. Nunca só a cor. */
+.stats{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.stat{
+  display:inline-flex;align-items:center;gap:7px;
+  min-height:32px;padding:0 13px;border-radius:var(--r-pill);
+  background:var(--surf);border:var(--hair) solid var(--line);
+  font-size:var(--t-sm);color:var(--txs);white-space:nowrap;
+  transition:background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+             box-shadow var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.stat b{font-size:var(--t-md);font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
+.stat:hover{border-color:var(--line2);background:var(--surf2)}
+.stat.is-on{
+  background:var(--c-tint);color:var(--c-ink);border-color:transparent;
+  box-shadow:inset 0 0 0 1.5px var(--c-ink);
+}
+.stat.is-on b{color:var(--c-ink)}
+.stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.stat:disabled{opacity:.55;cursor:default}
+/* entregues ocultas da lista: o número continua verdadeiro, só recua */
+.stat.is-muted{opacity:.45}
+.stat.is-muted b{font-weight:600}
+.stat:disabled:hover{background:var(--surf);border-color:var(--line)}
+
+/* Atrasadas não é um quarto status: é um recorte do que está em aberto.
+   Fica depois de um divisor, e só existe quando há alguma. */
+.stat-div{width:var(--hair);height:20px;background:var(--line2);flex-shrink:0;margin:0 3px}
+.stat.is-danger{
+  color:var(--red-i);border-color:transparent;
+  background:var(--red-t);
+  box-shadow:inset 0 0 0 var(--hair) var(--red-i), var(--glow-red);
+}
+.stat.is-danger b{color:var(--red-i)}
+.stat.is-danger:hover{background:var(--red-t);filter:brightness(1.04)}
+.stat.is-danger.is-on{box-shadow:inset 0 0 0 1.5px var(--red-i), var(--glow-red)}
+
+/* ── 6. menu flutuante: filtros e busca ──────────────────────────────
+   Saíram do topo e flutuam sobre a lista, ao alcance do polegar. Cada botão
+   abre a sua gaveta acima dele — uma por vez. O que está filtrado fica
+   escrito no próprio botão, então não é preciso abrir para saber. */
+
+.dock{
+  position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+  z-index:180;display:flex;flex-direction:column;align-items:center;gap:8px;
+  max-width:min(760px,calc(100vw - 24px));
+}
+
+.dock-bar{
+  display:flex;align-items:center;gap:2px;
+  padding:4px;border-radius:var(--r-pill);
+  background:var(--glass);border:var(--hair) solid var(--line2);
+  backdrop-filter:var(--glass-blur-deep);-webkit-backdrop-filter:var(--glass-blur-deep);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+}
+.dock-btn{
+  display:inline-flex;align-items:center;gap:7px;
+  min-height:38px;padding:0 15px;border-radius:var(--r-pill);
+  font-size:var(--t-md);font-weight:550;color:var(--txs);white-space:nowrap;
+  transition:background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.dock-btn:hover{background:var(--surf2);color:var(--tx)}
+.dock-btn.is-open{background:var(--surf3);color:var(--tx)}
+.dock-btn.has-sel{color:var(--acc-i)}
+.dock-btn-icon{padding:0;width:38px;justify-content:center}
+.dock-div{width:var(--hair);height:20px;background:var(--line);flex-shrink:0;margin:0 2px}
+.dock-tag{
+  padding:1px 8px;border-radius:var(--r-pill);flex-shrink:0;
+  background:var(--acc-t);color:var(--acc-i);
+  font-size:var(--t-xs);font-weight:700;
+  max-width:88px;overflow:hidden;text-overflow:ellipsis;
+}
+.dock-tag[hidden]{display:none}
+
+/* gaveta */
+.dock-pop{
+  /* Do tamanho do conteúdo, centrada sobre a barra — esticar até a largura
+     máxima fazia a gaveta ficar muito mais larga que o menu e parecer solta. */
+  /* Do tamanho do conteúdo, com teto. Largura fixa deixava sobrar vazio na
+     gaveta de casas, que só tem quatro; a de pessoas bate no teto e rola. */
+  width:max-content;max-width:min(480px,calc(100vw - 24px));
+  padding:8px;border-radius:var(--r-lg);
+  /* Vidro ESPESSO: no peso fino dava para ler o card por baixo da gaveta. */
+  background:var(--glass-thick);border:var(--hair) solid var(--line2);
+  backdrop-filter:var(--glass-blur-deep);-webkit-backdrop-filter:var(--glass-blur-deep);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+  animation:popIn var(--dur-2) var(--ease) both;
+}
+.dock-pop[hidden]{display:none}
+@keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+
+/* faixa rolável entre duas setas */
+.pill-track{display:flex;align-items:center;gap:4px}
+.pill-arrow{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surf2);color:var(--txs);
+  transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease),opacity var(--dur-1);
+}
+.pill-arrow:hover{background:var(--surf3);color:var(--tx)}
+.pill-arrow:disabled{opacity:.25;cursor:default}
+.fpills{
+  display:flex;align-items:center;gap:6px;flex-wrap:nowrap;
+  flex:1;min-width:0;overflow-x:auto;scroll-behavior:smooth;
+  scrollbar-width:none;padding:1px;
+  --fade:26px;
+}
+/* O nome seguinte se dissolve em vez de ser cortado a faca junto da seta.
+   Só esmaece o lado que ainda tem conteúdo — nas pontas o primeiro e o
+   último pill aparecem inteiros. */
+.fpills.fade-l.fade-r{
+  mask-image:linear-gradient(to right,transparent,#000 var(--fade),#000 calc(100% - var(--fade)),transparent);
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 var(--fade),#000 calc(100% - var(--fade)),transparent);
+}
+.fpills.fade-l:not(.fade-r){
+  mask-image:linear-gradient(to right,transparent,#000 var(--fade));
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 var(--fade));
+}
+.fpills.fade-r:not(.fade-l){
+  mask-image:linear-gradient(to right,#000 calc(100% - var(--fade)),transparent);
+  -webkit-mask-image:linear-gradient(to right,#000 calc(100% - var(--fade)),transparent);
+}
+.fpills::-webkit-scrollbar{display:none}
+.fp{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+  min-height:34px;padding:0 13px;border-radius:var(--r-pill);
+  background:var(--surf2);border:var(--hair) solid transparent;
+  font-size:var(--t-md);font-weight:500;color:var(--txs);
+  transition:background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+             box-shadow var(--dur-1) var(--ease);
+}
+.fp:hover:not(.on){background:var(--surf3);color:var(--tx)}
+.fp.on{
+  background:var(--acc-t);color:var(--acc-i);font-weight:650;
+  box-shadow:inset 0 0 0 1.5px var(--acc-i), var(--glow-acc);
+}
+.fp .mark{width:auto;color:var(--tx);opacity:.82}
+.fp:hover .mark{opacity:1}
+.fp.on .mark{color:currentColor;opacity:1}
+.pdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+
+/* busca */
+.dock-pop-search{display:flex;align-items:center;gap:9px;padding:0 12px;min-height:46px}
+.dock-pop-search > svg{color:var(--txs);flex-shrink:0}
+.search-inp{
+  flex:1;min-width:0;border:none;background:transparent;color:var(--tx);
+  font-size:var(--t-md);outline:none;padding:12px 0;
+}
+.search-inp::placeholder{color:var(--txs)}
+.dock-clear{
+  width:26px;height:26px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surf3);color:var(--txs);
+}
+.dock-clear:hover{color:var(--tx)}
+.dock-clear[hidden]{display:none}
+
+/* ── 7. corpo e seções ───────────────────────────────────────────── */
+
+.body{max-width:var(--maxw);margin:0 auto;padding-block:20px 116px;padding-inline:var(--gut)}
+
+.cat-sec{margin-bottom:26px}
+.cat-hdr{
+  display:flex;align-items:center;gap:10px;width:100%;
+  min-height:34px;padding:5px 0;margin-bottom:8px;text-align:left;
+}
+.cat-hdr:hover .cat-arrow{color:var(--txs)}
+.cat-hdr .mark{width:auto;color:var(--tx);flex-shrink:0}
+.cat-lbl{font-size:var(--t-xs);font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--tx);flex-shrink:0}
+/* contador em aberto: o que está vivo na seção, não o total */
+.cat-open{
+  font-size:var(--t-xs);font-weight:650;flex-shrink:0;
+  padding:1px 7px;border-radius:var(--r-pill);
+  background:var(--org-t);color:var(--org-i);font-variant-numeric:tabular-nums;
+}
+.cat-cnt{font-size:var(--t-xs);color:var(--txs);flex-shrink:0;font-variant-numeric:tabular-nums}
+.cat-line{flex:1;height:var(--hair);background:var(--line)}
+.cat-arrow{color:var(--txt);transition:transform .2s;display:flex;flex-shrink:0}
+.cat-arrow.closed{transform:rotate(-90deg)}
+.cat-body.collapsed{display:none}
+
+/* ── 8. card ─────────────────────────────────────────────────────
+   Aberto: superfície cheia.  Entregue: só o fio.
+   O contorno vem do letreiro da nSco., que é desenhado dentro de
+   um retângulo de fio fino — é o único recurso formal da marca.   */
+
+.card{
+  position:relative;
+  background:var(--glass-card);
+  backdrop-filter:var(--glass-blur-deep);-webkit-backdrop-filter:var(--glass-blur-deep);
+  border:var(--hair) solid var(--line2);
+  border-radius:var(--r-lg);
+  padding:14px 16px;margin-bottom:7px;
+  box-shadow:inset 0 1px 0 var(--glass-edge);
+  transition:border-color var(--dur-2) var(--ease), background var(--dur-2) var(--ease);
+}
+.card:hover{border-color:var(--line2);background:var(--glass-thick)}
+/* Vidro em tudo apaga a diferença entre aberto e entregue, que é o motivo de
+   a orientação manter o material fora do conteúdo. A hierarquia volta pela
+   ESPESSURA: card aberto é vidro denso e avança; entregue é fino e recua. */
+.card.is-done{background:var(--glass-card-2);border-color:var(--line)}
+.card.is-done .card-title{color:var(--txs);font-weight:450}
+/* O traço lateral saiu. O sinal agora é um brilho contido em volta do card,
+   mais a etiqueta "Atrasada · N dias" e a data em vermelho — o estado nunca
+   depende só da cor. */
+.card.is-late{border-color:var(--red-edge);box-shadow:var(--glow-late)}
+
+.card-row{display:flex;align-items:flex-start;gap:10px}
+.card-body{flex:1;min-width:0}
+
+.title-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:5px}
+.card-title{
+  font-size:var(--t-lg);font-weight:550;letter-spacing:-.011em;
+  line-height:1.32;color:var(--tx);
+}
+.card-desc{font-size:var(--t-md);color:var(--txs);line-height:1.5;margin-bottom:9px}
+
+/* etiquetas */
+.tag{
+  display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+  font-size:var(--t-xs);font-weight:650;
+  padding:2px 8px;border-radius:var(--r-pill);
+  white-space:nowrap;
+}
+/* porte: sem cor. A magnitude é dita pela quantidade de traços. */
+.tag-size{color:var(--txs);box-shadow:inset 0 0 0 var(--hair) var(--line2);font-weight:550}
+.tag-size .bars{display:flex;align-items:flex-end;gap:1.5px;height:9px}
+.tag-size .bars i{width:2px;background:currentColor;border-radius:1px;opacity:.3}
+.tag-size .bars i.fill{opacity:1}
+.tag-size .bars i:nth-child(1){height:4px}
+.tag-size .bars i:nth-child(2){height:6.5px}
+.tag-size .bars i:nth-child(3){height:9px}
+/* concorrência ganha: roxo, usado em nenhum outro lugar do app */
+.tag-won{color:var(--pur-i);background:var(--pur-t)}
+/* prazo */
+.tag-late{color:var(--red-i);background:var(--red-t)}
+.tag-near{color:var(--org-i);background:var(--org-t)}
+
+.card-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}
+
+/* status: <select> nativo — teclado, leitor de tela e menu do sistema de graça */
+.status-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0}
+.status-select{
+  -webkit-appearance:none;appearance:none;
+  min-height:28px;padding:0 26px 0 11px;border:none;border-radius:var(--r-pill);
+  font-size:var(--t-xs);font-weight:650;
+  color:var(--s-ink);background:var(--s-bg);
+  cursor:pointer;outline:none;transition:filter .15s;
+}
+.status-select:hover{filter:brightness(.97)}
+:root[data-theme="dark"] .status-select:hover{filter:brightness(1.12)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .status-select:hover{filter:brightness(1.12)}
+}
+.status-select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.status-select option{color:var(--tx);background:var(--surf);font-weight:400}
+.status-caret{position:absolute;right:9px;pointer-events:none;color:var(--s-ink)}
+/* um ponto cheio antes do rótulo: o status não depende só do matiz */
+.status-wrap::before{
+  content:'';position:absolute;left:0;width:0;height:0;
+}
+
+.meta-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:var(--t-sm);color:var(--txs);white-space:nowrap;
+}
+.meta-chip.is-late{color:var(--red-i);font-weight:600}
+.meta-chip.is-near{color:var(--org-i);font-weight:600}
+.meta-chip svg{color:currentColor;opacity:.8}
+
+.avatars{display:flex;align-items:center}
+.av{
+  border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-weight:650;color:#fff;flex-shrink:0;overflow:hidden;
+  margin-left:-5px;border:1.5px solid var(--surf);
+  transition:transform .15s;
+}
+.card.is-done .av{border-color:var(--bg)}
+.av:first-child{margin-left:0}
+.av img{width:100%;height:100%;object-fit:cover}
+button.av{cursor:pointer}
+button.av:hover{transform:translateY(-1px) scale(1.06);z-index:1}
+.resp-names{font-size:var(--t-sm);color:var(--txs)}
+
+.card-acts{display:flex;gap:2px;flex-shrink:0}
+.act{
+  width:30px;height:30px;border-radius:var(--r-sm);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txs);opacity:.65;transition:opacity .15s,background .15s,color .15s;
+}
+.card:hover .act,.act:focus-visible{opacity:1}
+.act:hover{background:var(--surf2);color:var(--tx)}
+.act-del:hover{background:var(--red-t);color:var(--red-i)}
+
+/* mostrar mais / vazio */
+.more-btn{
+  display:block;width:100%;min-height:38px;margin-top:4px;
+  border-radius:var(--r-md);border:var(--hair) dashed var(--line2);
+  font-size:var(--t-sm);font-weight:550;color:var(--txs);
+  transition:background .15s,color .15s;
+}
+.more-btn:hover{background:var(--surf2);color:var(--tx)}
+.empty{
+  text-align:center;padding:64px 20px;color:var(--txs);
+  font-size:var(--t-md);line-height:1.6;
+}
+.empty strong{display:block;color:var(--tx);font-size:var(--t-lg);font-weight:600;margin-bottom:4px}
+
+/* ── 9. indicador de sincronização ───────────────────────────────── */
+
+.sync{
+  position:fixed;bottom:84px;right:16px;z-index:150;
+  display:flex;align-items:center;gap:7px;
+  padding:8px 13px;border-radius:var(--r-pill);
+  background:var(--glass);border:var(--hair) solid var(--line2);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+  font-size:var(--t-sm);color:var(--txs);
+  pointer-events:none;transition:opacity var(--dur-3),transform var(--dur-3);
+}
+.sync[hidden]{display:flex!important;opacity:0;transform:translateY(8px)}
+.sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sync-dot.ok{background:var(--grn)}
+.sync-dot.saving{background:var(--org);animation:pulse .9s ease-in-out infinite}
+.sync-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ── 10. modais ──────────────────────────────────────────────────── */
+
+/* O editor de avatar abre POR CIMA de Perfis e de Editar time: é janela
+   filha. Com o mesmo z-index dos dois, quem vinha depois no HTML ganhava —
+   e Perfis vem depois, então o seletor de cor sumia atrás. */
+#avOverlay{z-index:260}
+
+.overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.48);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;
+  padding:20px;overflow-y:auto;
+  animation:fadeIn var(--dur-1) ease both;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.overlay[hidden]{display:none!important}
+.modal{
+  width:100%;max-width:460px;max-height:90vh;overflow-y:auto;
+  background:var(--glass-thick);border:var(--hair) solid var(--line2);
+  border-radius:var(--r-xl);padding:22px;
+  backdrop-filter:var(--glass-blur-deep);-webkit-backdrop-filter:var(--glass-blur-deep);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+  animation:modalIn var(--dur-2) var(--ease) both;
+}
+@keyframes modalIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.modal-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.modal h2{font-size:1.0625rem;font-weight:700;letter-spacing:-.018em;color:var(--tx)}
+.modal-sub{font-size:var(--t-md);color:var(--txs);line-height:1.5;margin:-8px 0 18px}
+.modal-close{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surf2);color:var(--txs);transition:background .15s,color .15s;
+}
+.modal-close:hover{background:var(--surf3);color:var(--tx)}
+
+.field{margin-bottom:13px}
+.field label{display:block;font-size:var(--t-sm);font-weight:550;color:var(--txs);margin-bottom:5px}
+.field input,.field select,.field textarea{
+  width:100%;min-height:40px;padding:9px 12px;
+  background:var(--surf2);border:1px solid var(--line);border-radius:var(--r-sm);
+  color:var(--tx);font-size:var(--t-md);outline:none;
+  transition:border-color .15s,background .15s;
+}
+.field input:hover,.field select:hover,.field textarea:hover{background:var(--surf3)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--acc);background:var(--surf2)}
+.field textarea{resize:vertical;min-height:62px}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1;min-width:0}
+.check-row{display:flex;align-items:center;gap:9px;cursor:pointer;min-height:40px}
+.check-row input{width:auto;min-height:0;accent-color:var(--pur);cursor:pointer}
+.check-row span{font-size:var(--t-md);color:var(--tx)}
+
+.modal-btns{display:flex;gap:9px;margin-top:20px}
+.modal-btns .btn{flex:1;justify-content:center;min-height:42px;border-radius:var(--r-md);font-size:var(--t-md)}
+.modal-btns .btn-primary{flex:2}
+.btn-danger{color:var(--red-i);border-color:var(--line)}
+.btn-danger-solid{background:var(--red-solid);border-color:transparent;color:#fff}
+.btn-danger-solid:hover{background:var(--red-solid);color:#fff;filter:brightness(1.1)}
+.btn-danger:hover{background:var(--red-t);color:var(--red-i);border-color:transparent}
+
+/* multi-select de responsáveis */
+.multi-wrap{
+  display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+  min-height:44px;padding:7px 10px;cursor:pointer;
+  background:var(--surf2);border:1px solid var(--line);border-radius:var(--r-sm);
+}
+.multi-wrap:hover{background:var(--surf3)}
+.multi-ph{font-size:var(--t-md);color:var(--txs)}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 5px 3px 9px;border-radius:var(--r-pill);
+  background:var(--acc-t);font-size:var(--t-sm);font-weight:550;color:var(--acc-i);
+}
+.chip-x{
+  width:18px;height:18px;border-radius:50%;color:inherit;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.chip-x:hover{background:color-mix(in srgb,currentColor 18%,transparent)}
+.multi-drop{
+  margin-top:5px;max-height:240px;overflow-y:auto;
+  background:var(--surf2);border:1px solid var(--line2);border-radius:var(--r-sm);
+}
+.multi-drop[hidden]{display:none}
+.mopt{
+  display:flex;align-items:center;gap:9px;width:100%;
+  min-height:40px;padding:0 13px;font-size:var(--t-md);color:var(--tx);text-align:left;
+}
+.mopt:hover{background:var(--surf3)}
+.mopt.sel{color:var(--acc-i);font-weight:550}
+.mopt-check{
+  width:18px;height:18px;border-radius:5px;flex-shrink:0;
+  border:1.5px solid var(--line2);display:flex;align-items:center;justify-content:center;color:#fff;
+}
+.mopt.sel .mopt-check{background:var(--acc-solid);border-color:var(--acc-solid)}
+
+/* time */
+.team-item{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.team-item input{
+  flex:1;min-width:0;min-height:40px;padding:9px 12px;
+  background:var(--surf2);border:1px solid var(--line);border-radius:var(--r-sm);
+  color:var(--tx);font-size:var(--t-md);outline:none;
+}
+.team-item input:focus{border-color:var(--acc)}
+.team-del{
+  width:34px;height:34px;border-radius:var(--r-sm);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txs);transition:background .15s,color .15s;
+}
+.team-del:hover{background:var(--red-t);color:var(--red-i)}
+/* Ocultar fica ao lado de remover de propósito: é a saída sem perda para
+   quem só quer tirar alguém da lista sem apagar o trabalho dela. */
+.team-eye{
+  width:34px;height:34px;border-radius:var(--r-sm);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txs);transition:background .15s,color .15s;
+}
+.team-eye:hover{background:var(--surf3);color:var(--tx)}
+.team-eye.is-off{color:var(--org-i)}
+.team-eye.is-off:hover{background:var(--org-t)}
+.btn-block{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;min-height:42px;border-radius:var(--r-md);
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  font-size:var(--t-md);font-weight:550;color:var(--txs);transition:background .15s,color .15s;
+}
+.btn-block:hover{background:var(--surf3);color:var(--tx)}
+
+/* editor de avatar */
+.av-preview-wrap{display:flex;justify-content:center;margin-bottom:20px}
+.av-preview-lg{
+  width:76px;height:76px;border-radius:50%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.625rem;font-weight:700;color:#fff;transition:background .2s;
+}
+.color-swatches{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.swatch{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  border:2px solid transparent;transition:transform .15s,box-shadow .15s;
+}
+.swatch:hover{transform:scale(1.1)}
+.swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--surf),0 0 0 4px var(--tx)}
+.upload-row{display:flex;gap:8px}
+.upload-row .btn{flex:1;justify-content:center;min-height:40px;border-radius:var(--r-sm)}
+
+
+/* ── conta ───────────────────────────────────────────────────────────
+   O avatar mora na barra, sempre visível: dá para saber de quem é a sessão
+   sem clicar em nada. Ele é também a porta do menu. */
+.btn-account{padding:0 12px 0 4px;gap:7px;min-height:36px;flex-shrink:0}
+.btn-account .av{margin:0;border-color:transparent}
+.account-name{font-weight:600;color:var(--tx)}
+.btn-account:hover{box-shadow:var(--glow-acc);border-color:transparent}
+.btn-account[aria-expanded="true"]{
+  background:var(--acc-t);border-color:transparent;
+  box-shadow:inset 0 0 0 1px var(--acc-i);
+}
+
+.menu-user{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px 11px;
+}
+.menu-user .av{border-color:transparent;flex-shrink:0}
+.menu-user-id{display:flex;flex-direction:column;min-width:0;flex:1}
+.menu-user-name{font-size:var(--t-md);font-weight:650;color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu-user-mail{font-size:var(--t-xs);color:var(--txs);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── meu perfil ──────────────────────────────────────────────────── */
+
+.me-hd{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.me-id{flex:1;min-width:0}
+.me-name{font-size:1.125rem;font-weight:700;letter-spacing:-.018em;color:var(--tx);line-height:1.2}
+.me-mail{font-size:var(--t-sm);color:var(--txs);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.me-fields{display:flex;gap:12px;margin-bottom:16px}
+.me-fields .profile-field{flex:1;min-width:0}
+.me-input{
+  width:100%;min-height:36px;padding:7px 10px;
+  background:var(--surf2);border:var(--hair) solid var(--line);border-radius:var(--r-sm);
+  color:var(--tx);font-size:var(--t-sm);outline:none;transition:border-color var(--dur-1);
+}
+.me-input:hover{border-color:var(--line2)}
+.me-input:focus{border-color:var(--acc)}
+
+#meBody .profile-progress{margin-bottom:12px}
+#meBody .metrics{margin-bottom:20px}
+
+.me-open{margin-bottom:20px}
+.me-open h4{
+  font-size:var(--t-xs);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--txs);margin-bottom:8px;
+}
+.me-list{list-style:none;display:flex;flex-direction:column;gap:2px}
+.me-item{
+  display:flex;align-items:center;gap:10px;width:100%;
+  min-height:38px;padding:6px 10px;border-radius:var(--r-sm);
+  text-align:left;transition:background var(--dur-1) var(--ease);
+}
+.me-item:hover{background:var(--surf2)}
+.me-item-title{
+  flex:1;min-width:0;font-size:var(--t-md);color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.me-item-date{font-size:var(--t-sm);color:var(--txs);flex-shrink:0;font-variant-numeric:tabular-nums}
+.me-more{font-size:var(--t-sm);color:var(--txs);padding:6px 10px 0}
+.me-none{
+  padding:16px;border-radius:var(--r-md);
+  background:var(--grn-t);color:var(--grn-i);
+  font-size:var(--t-md);font-weight:550;text-align:center;
+}
+
+.me-actions{display:flex;gap:9px}
+.me-actions .btn{flex:1;justify-content:center;min-height:42px;border-radius:var(--r-md);font-size:var(--t-md)}
+.me-delete{
+  display:block;width:100%;margin-top:14px;padding:8px;
+  font-size:var(--t-sm);color:var(--txs);
+  transition:color var(--dur-1);
+}
+.me-delete:hover{color:var(--red-i)}
+
+/* ── 13. perfis ──────────────────────────────────────────────────── */
+
+.profiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+
+.profile{
+  display:flex;flex-direction:column;
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  border-radius:var(--r-lg);overflow:hidden;
+}
+.profile.is-locked{opacity:.82}
+
+.profile-hd{
+  display:flex;align-items:center;gap:12px;
+  padding:15px 15px 13px;
+  border-bottom:var(--hair) solid var(--line);
+}
+.profile-id{min-width:0;flex:1}
+/* Etiqueta e cargo dividem a segunda linha para que o nome fique com a
+   largura toda: "Marcela" e "Marcelo" precisam ser distinguíveis. */
+.profile-sub{display:flex;align-items:center;gap:7px;margin-top:2px;min-width:0}
+.profile-name{
+  font-size:var(--t-lg);font-weight:650;letter-spacing:-.012em;
+  color:var(--tx);line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.profile-role{
+  flex:1;min-width:0;background:none;border:none;outline:none;
+  padding:2px 0;
+  font-size:var(--t-sm);color:var(--txs);
+  border-bottom:1px solid transparent;
+}
+.profile-role:hover:not(:disabled){border-bottom-color:var(--line2)}
+.profile-role:focus{border-bottom-color:var(--acc)}
+.profile-role:disabled{cursor:default}
+
+.profile-tag{
+  flex-shrink:0;
+  padding:2px 8px;border-radius:var(--r-pill);
+  font-size:var(--t-xs);font-weight:650;
+  background:var(--surf3);color:var(--txs);
+}
+.profile-tag.is-admin{background:var(--pur-t);color:var(--pur-i)}
+.profile-tag.is-none{background:transparent;box-shadow:inset 0 0 0 var(--hair) var(--line2)}
+.profile-tag.is-off{background:var(--org-t);color:var(--org-i)}
+
+/* O cartão de quem está oculto continua inteiro e editável — recua, não some,
+   senão o administrador não teria como trazer a pessoa de volta. */
+.profile.is-hidden{background:var(--surf);border-style:dashed}
+.profile.is-hidden .profile-hd{border-bottom-style:dashed}
+.profile.is-hidden .av,
+.profile.is-hidden .profile-body{opacity:.62;transition:opacity var(--dur-1) var(--ease)}
+.profile.is-hidden:hover .av,
+.profile.is-hidden:hover .profile-body{opacity:1}
+
+.profile-eye{
+  width:30px;height:30px;border-radius:var(--r-sm);flex-shrink:0;align-self:flex-start;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txt);transition:background .15s,color .15s;
+}
+.profile-eye:hover{background:var(--surf3);color:var(--tx)}
+.profile-eye.is-off{color:var(--org-i)}
+.profile-eye.is-off:hover{background:var(--org-t)}
+
+/* Círculo = imagem. Lápis = botão, e o único alvo clicável.
+   O botão fica FORA do círculo (não sobreposto), então o hover de um nunca
+   cobre o outro — era esse o defeito. */
+.av-wrap{position:relative;display:inline-flex;flex-shrink:0;padding-right:6px;padding-bottom:6px}
+.av-edit-btn{
+  position:absolute;right:0;bottom:0;
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surf);color:var(--txs);
+  box-shadow:0 0 0 var(--hair) var(--line2), 0 2px 6px rgba(0,0,0,.16);
+  transition:background var(--dur-1) var(--ease), color var(--dur-1) var(--ease),
+             box-shadow var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+.av-edit-btn:hover{
+  background:var(--acc-solid);color:#fff;transform:scale(1.08);
+  box-shadow:var(--glow-acc);
+}
+.av-edit-btn:active{transform:scale(.94)}
+
+.profile-body{display:flex;flex-direction:column;gap:13px;padding:14px 15px 15px}
+
+.profile-field label{
+  display:block;margin-bottom:5px;
+  font-size:var(--t-xs);font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--txs);
+}
+.date-row{display:flex;align-items:center;gap:9px}
+.profile-date{
+  flex:1;min-width:0;min-height:36px;padding:7px 10px;
+  background:var(--surf);border:var(--hair) solid var(--line);
+  border-radius:var(--r-sm);color:var(--tx);
+  font-size:var(--t-sm);outline:none;
+  transition:border-color .15s;
+}
+.profile-date:hover:not(:disabled){border-color:var(--line2)}
+.profile-date:focus{border-color:var(--acc)}
+.profile-date:disabled{opacity:.7;cursor:default}
+.tenure-val{
+  flex-shrink:0;font-size:var(--t-sm);font-weight:650;
+  color:var(--acc-i);font-variant-numeric:tabular-nums;
+}
+
+/* proporção entregue/total: a única barra do card, logo abaixo dos números */
+.profile-progress{display:flex;flex-direction:column;gap:6px}
+.pp-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  font-size:var(--t-sm);color:var(--txs);
+}
+.pp-pct{font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
+.pp-track{height:6px;border-radius:var(--r-pill);background:var(--surf3);overflow:hidden}
+.pp-fill{height:100%;border-radius:var(--r-pill);background:var(--grn);transition:width .45s cubic-bezier(.4,0,.2,1)}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border:var(--hair) solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.metric{background:var(--surf);padding:9px 6px;text-align:center}
+.metric-l{font-size:var(--t-xs);color:var(--txs);margin-bottom:3px;line-height:1.2}
+.metric-v{
+  font-size:1.0625rem;font-weight:700;letter-spacing:-.02em;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+
+.profile-admin{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-top:11px;border-top:var(--hair) solid var(--line);
+}
+.switch{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:var(--t-sm);color:var(--tx)}
+.switch input{width:auto;accent-color:var(--pur);cursor:pointer}
+.switch input:disabled{cursor:default}
+.profile-email{
+  font-size:var(--t-xs);color:var(--txs);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+}
+
+/* ── 14. painel ──────────────────────────────────────────────────────
+   Regras de gráfico deste bloco:
+   · Cor de status só onde significa status. Grandeza (carga por pessoa) usa
+     tinta neutra — o comprimento da barra já é a medida.
+   · Nenhuma marca fala só pela cor: todas têm rótulo e número visíveis, que
+     é também o alívio exigido quando o preenchimento tem pouco contraste
+     contra a superfície.
+   · Sequencial = um matiz só. Nunca arco-íris.
+   · 2px de respiro entre preenchimentos vizinhos, para a divisa ler. */
+
+/* Duas camadas de vidro empilhadas: a janela e, por dentro dela, um véu
+   próprio. Uma camada só ficava transparente demais para um painel cheio de
+   número; duas dão opacidade sem virar superfície chapada. */
+.modal-wide{max-width:880px;position:relative;isolation:isolate}
+.modal-wide::before{
+  content:'';position:absolute;inset:0;z-index:-1;border-radius:inherit;
+  background:var(--glass-veil);
+  backdrop-filter:var(--glass-blur-deep);-webkit-backdrop-filter:var(--glass-blur-deep);
+}
+#dashBody{display:flex;flex-direction:column;gap:12px}
+
+/* filtro por ano */
+.yr-bar{
+  display:inline-flex;align-self:flex-start;align-items:center;gap:2px;
+  padding:3px;border-radius:var(--r-pill);
+  background:var(--surf2);border:var(--hair) solid var(--line);
+}
+.yr{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:30px;padding:0 16px;border-radius:var(--r-pill);
+  font-size:var(--t-sm);font-weight:600;color:var(--txs);
+  white-space:nowrap;font-variant-numeric:tabular-nums;
+  transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease);
+}
+.yr:hover{color:var(--tx)}
+.yr.is-on{background:var(--surf);color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+/* legenda da rampa: sem ela a cor da barra não quer dizer nada */
+
+/* números de cabeçalho */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{
+  display:flex;flex-direction:column;gap:2px;
+  padding:14px 15px;border-radius:var(--r-lg);
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  color:var(--t-ink);
+}
+/* o único bloco cheio do painel: o que pede ação */
+.tile.is-alert{background:var(--t-tint);border-color:transparent;box-shadow:var(--glow-late)}
+.tile-ico{display:flex;margin-bottom:4px}
+.tile-n{font-size:1.75rem;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.tile-l{font-size:var(--t-md);font-weight:600;color:var(--tx)}
+.tile.is-alert .tile-l{color:var(--t-ink)}
+.tile-hint{font-size:var(--t-xs);color:var(--txs)}
+.tile.is-alert .tile-hint{color:var(--t-ink);opacity:.85}
+
+/* painéis */
+.panel{
+  padding:16px 17px 17px;border-radius:var(--r-lg);
+  background:var(--surf2);border:var(--hair) solid var(--line);
+}
+.panel-hd{margin-bottom:14px}
+.panel-hd h3{font-size:var(--t-md);font-weight:650;color:var(--tx);letter-spacing:-.008em}
+.panel-sub{font-size:var(--t-xs);color:var(--txs);margin-top:1px}
+.dash-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* barras por mês — série única, matiz único, pico em destaque */
+.chart{position:relative;height:172px}
+.chart-grid{position:absolute;inset:0 0 22px;display:flex;flex-direction:column;justify-content:space-between}
+.chart-grid span{height:var(--hair);background:var(--line)}
+.chart-bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:2px}
+.bar-col{
+  flex:1;min-width:0;height:100%;
+  display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;
+  border-radius:var(--r-xs);cursor:default;
+}
+.bar-col:hover .bar,.bar-col:focus-visible .bar{filter:brightness(1.15)}
+.bar-col:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.bar{
+  width:100%;max-width:34px;min-height:3px;
+  border-radius:4px 4px 0 0;              /* pontas arredondadas só no topo */
+  transition:filter var(--dur-1) var(--ease);
+}
+.bar-x{font-size:var(--t-xs);color:var(--txs);line-height:1;height:16px}
+.chart-tip{
+  position:absolute;top:-2px;transform:translateX(-50%);
+  padding:5px 10px;border-radius:var(--r-sm);white-space:nowrap;
+  background:var(--tx);color:var(--bg);
+  font-size:var(--t-xs);font-weight:600;pointer-events:none;
+}
+.chart-tip[hidden]{display:none}
+
+/* situação — barra 100% empilhada */
+.stack{display:flex;gap:2px;height:12px;border-radius:var(--r-pill);overflow:hidden;margin-bottom:14px}
+.stack span{min-width:3px;box-shadow:inset 0 1px 0 rgba(255,255,255,.28)}
+.stack-key{display:flex;flex-direction:column;gap:9px}
+.stack-key > div{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.stack-key dt{display:flex;align-items:center;gap:7px;font-size:var(--t-sm);color:var(--txs)}
+.stack-key dd{font-size:var(--t-md);font-weight:700;color:var(--tx);font-variant-numeric:tabular-nums}
+.stack-key dd small{font-size:var(--t-xs);font-weight:500;color:var(--txs);margin-left:3px}
+.key-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+
+/* por casa — entregue vs em aberto */
+.house-rows{display:flex;flex-direction:column;gap:11px}
+.house-row{display:flex;align-items:center;gap:10px}
+.house-name{width:58px;flex-shrink:0;display:flex;align-items:center;color:var(--tx)}
+.house-name .mark{width:auto;color:currentColor}
+.house-track{flex:1;min-width:0;display:flex;gap:2px;height:10px;border-radius:var(--r-pill);overflow:hidden;background:var(--surf3)}
+.house-track span{min-width:3px}
+.house-pad{background:transparent}
+.house-n{font-size:var(--t-sm);font-weight:650;color:var(--tx);
+  width:34px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+
+/* carga por pessoa — grandeza, então tinta neutra */
+.load-rows{display:flex;flex-direction:column;gap:10px}
+.load-row{display:flex;align-items:center;gap:10px}
+.load-name{width:76px;flex-shrink:0;font-size:var(--t-sm);color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.load-track{flex:1;min-width:0;height:10px;border-radius:var(--r-pill);background:var(--surf3);overflow:hidden}
+.load-fill{
+  height:100%;border-radius:var(--r-pill);
+  background:color-mix(in srgb, var(--tx) 38%, transparent);
+  transition:width var(--dur-3) var(--ease);
+}
+.load-n{font-size:var(--t-sm);font-weight:650;color:var(--tx);
+  width:26px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+
+/* log */
+.log-list{max-height:min(420px,50vh);overflow-y:auto}
+.log-entry{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:var(--hair) solid var(--line)}
+.log-entry:last-child{border-bottom:none}
+.log-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:6px}
+.log-msg{flex:1;min-width:0;font-size:var(--t-md);color:var(--txs);line-height:1.45}
+.log-ts{font-size:var(--t-xs);color:var(--txs);white-space:nowrap;flex-shrink:0;padding-top:2px;opacity:.8}
+
+/* passos numerados (tutorial / setup) */
+.steps{display:flex;flex-direction:column;gap:15px;margin-bottom:20px}
+.step{display:flex;gap:12px;align-items:flex-start}
+.step-n{
+  width:25px;height:25px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--acc-t);color:var(--acc-i);
+  font-size:var(--t-sm);font-weight:700;
+}
+.step h3{font-size:var(--t-md);font-weight:650;color:var(--tx);margin-bottom:3px}
+.step p{font-size:var(--t-md);color:var(--txs);line-height:1.5}
+code{
+  padding:1.5px 6px;border-radius:5px;
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:.9em;color:var(--acc-i);
+}
+.note{
+  padding:12px 14px;border-radius:var(--r-md);
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  font-size:var(--t-sm);color:var(--txs);line-height:1.55;
+}
+.sep{height:var(--hair);background:var(--line);margin:18px 0}
+
+/* ── 12. entrada ─────────────────────────────────────────────────────
+   Uma coluna estreita, centrada, sem nada além do necessário para entrar.
+   A marca aparece uma vez e em tamanho generoso — é o único lugar do app
+   em que ela é a protagonista, porque aqui ainda não há conteúdo. */
+
+.auth{
+  position:fixed;inset:0;z-index:400;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg);overflow-y:auto;
+  padding-block:40px;padding-inline:20px;
+}
+.auth[hidden]{display:none!important}
+.auth-box{
+  width:100%;max-width:380px;
+  display:flex;flex-direction:column;
+}
+.auth-brand{margin-bottom:30px}
+.auth-mark{height:26px;width:auto;color:var(--tx)}
+.auth-title{
+  font-size:1.625rem;font-weight:700;letter-spacing:-.025em;
+  line-height:1.1;color:var(--tx);margin-bottom:5px;
+}
+.auth-sub{font-size:var(--t-md);color:var(--txs);margin-bottom:24px}
+.auth-box .field label{font-weight:550}
+.auth-box .field input{min-height:44px;border-radius:var(--r-md)}
+
+.auth-error{
+  display:flex;align-items:flex-start;gap:7px;
+  margin-top:4px;padding:10px 12px;border-radius:var(--r-sm);
+  background:var(--red-t);color:var(--red-i);
+  font-size:var(--t-sm);font-weight:550;line-height:1.45;
+}
+.auth-error[hidden]{display:none}
+
+.auth-submit{
+  justify-content:center;min-height:46px;margin-top:8px;
+  border-radius:var(--r-md);font-size:var(--t-md);
+}
+.auth-submit:disabled{opacity:.6;cursor:progress}
+
+.auth-switch{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  margin-top:18px;font-size:var(--t-md);color:var(--txs);
+}
+.auth-link{
+  color:var(--acc-i);font-weight:600;font-size:inherit;
+  border-radius:var(--r-xs);text-decoration:underline;text-underline-offset:2px;
+}
+.auth-link:hover{text-decoration:none}
+
+/* O aviso fica na tela, não só no README: quem entra tem de saber o que esta
+   porta tranca e o que ela não tranca. */
+.auth-note{
+  margin-top:26px;padding-top:16px;
+  border-top:var(--hair) solid var(--line);
+  font-size:var(--t-xs);color:var(--txs);line-height:1.55;
+}
+.auth-note strong{color:var(--tx)}
+
+/* controles de administrador: escondidos por padrão, aparecem quando a raiz
+   é marcada. Esconder é melhor que mostrar e recusar depois do clique. */
+.admin-only{display:none!important}
+:root.is-admin .admin-only{display:flex!important}
+
+.badge-admin{
+  flex-shrink:0;padding:1px 7px;border-radius:var(--r-pill);
+  background:var(--pur-t);color:var(--pur-i);
+  font-size:var(--t-xs);font-weight:700;letter-spacing:.03em;
+}
+.menu-danger{color:var(--red-i)!important}
+.menu-danger svg{color:currentColor!important}
+
+/* demanda de outra pessoa: o status vira etiqueta e o lugar dos botões
+   ganha um cadeado discreto, para a linha não desalinhar entre os cards */
+.status-static{
+  display:inline-flex;align-items:center;flex-shrink:0;
+  min-height:28px;padding:0 11px;border-radius:var(--r-pill);
+  font-size:var(--t-xs);font-weight:650;
+  color:var(--s-ink);background:var(--s-bg);
+}
+.act-lock{
+  width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  color:var(--txs);opacity:.4;
+}
+
+/* ── 15. avisos ──────────────────────────────────────────────────────
+   Retorno de estado mora na interface, junto do que ele descreve. Substitui
+   os alert() do navegador, que interrompiam muito para o que informavam. */
+
+.toasts{
+  position:fixed;left:16px;bottom:84px;z-index:300;
+  display:flex;flex-direction:column-reverse;gap:8px;
+  max-width:min(420px,calc(100vw - 32px));
+  pointer-events:none;
+}
+.toast{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 10px 10px 15px;border-radius:var(--r-pill);
+  background:var(--glass);border:var(--hair) solid var(--line2);
+  backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
+  box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge);
+  font-size:var(--t-md);color:var(--tx);
+  pointer-events:auto;
+  animation:toastIn var(--dur-2) var(--ease) both;
+}
+.toast.is-out{animation:toastOut var(--dur-2) ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateY(6px) scale(.97)}}
+.toast-msg{flex:1;min-width:0;line-height:1.4}
+.toast-warn{box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge), inset 3px 0 0 var(--org)}
+.toast-ok{box-shadow:var(--glass-shadow), inset 0 1px 0 var(--glass-edge), inset 3px 0 0 var(--grn)}
+.toast-action{
+  flex-shrink:0;min-height:30px;padding:0 12px;border-radius:var(--r-pill);
+  background:var(--acc-t);color:var(--acc-i);
+  font-size:var(--t-sm);font-weight:650;
+  transition:background var(--dur-1) var(--ease);
+}
+.toast-action:hover{background:var(--acc-solid);color:#fff}
+.toast-x{
+  flex-shrink:0;width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--txs);transition:background var(--dur-1),color var(--dur-1);
+}
+.toast-x:hover{background:var(--surf3);color:var(--tx)}
+
+/* atalhos listados no menu, como um menu de sistema faz */
+.menu-keys{
+  display:flex;flex-wrap:wrap;gap:4px 12px;
+  padding:6px 10px 8px;font-size:var(--t-xs);color:var(--txs);
+}
+.menu-keys span{display:inline-flex;align-items:center;gap:5px}
+kbd{
+  min-width:18px;padding:1px 5px;border-radius:5px;
+  background:var(--surf2);box-shadow:0 0 0 var(--hair) var(--line2);
+  font-family:inherit;font-size:var(--t-xs);font-weight:650;color:var(--tx);
+  text-align:center;
+}
+
+/* Entrada no quadro: um movimento orquestrado, uma vez só. O trilho preenche
+   e as primeiras linhas assentam. Nada anima em interação frequente. */
+#lista.boot .cat-sec:first-child .card:nth-child(-n+6){
+  animation:settle var(--dur-3) var(--ease) both;
+}
+#lista.boot .cat-sec:first-child .card:nth-child(1){animation-delay:.02s}
+#lista.boot .cat-sec:first-child .card:nth-child(2){animation-delay:.05s}
+#lista.boot .cat-sec:first-child .card:nth-child(3){animation-delay:.08s}
+#lista.boot .cat-sec:first-child .card:nth-child(4){animation-delay:.11s}
+#lista.boot .cat-sec:first-child .card:nth-child(5){animation-delay:.14s}
+#lista.boot .cat-sec:first-child .card:nth-child(6){animation-delay:.17s}
+@keyframes settle{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── 16. telas estreitas ─────────────────────────────────────────── */
+
+@media (max-width:640px){
+  :root{--gut:16px}
+  .topbar-inner{
+    padding-block:12px 10px;
+    grid-template-columns:1fr;
+    grid-template-areas:"brand" "title" "actions";
+    row-gap:9px;
+  }
+  .actions{justify-self:stretch}
+  /* excedente da barra desce para o menu ⋯ */
+  .narrow-only{display:flex}
+  .actions{gap:5px}
+  .btn{padding:0 11px}
+  .card{padding:13px 14px}
+  .card-acts{margin-left:auto}
+  .profiles-grid{grid-template-columns:1fr}
+  .auth{align-items:flex-start;padding-block:28px}
+  .toasts{left:12px;right:12px;bottom:88px;max-width:none}
+  .dock{left:12px;right:12px;bottom:12px;transform:none;max-width:none;align-items:stretch}
+  .dock-pop{width:auto}
+  .dock-bar{width:100%;justify-content:space-between}
+  .dock-btn{padding:0 12px}
+
+  .stats{gap:6px}
+  .stat{padding:0 11px;gap:6px}
+  .me-fields{flex-direction:column;gap:0}
+  .modal-wide{max-width:none}
+  .tiles{grid-template-columns:1fr}
+  .dash-row{grid-template-columns:1fr}
+  .chart{height:150px}
+  .bar-x{font-size:10px}
+  .me-actions{flex-direction:column}
+  .account-name{display:none}
+  .btn-account{padding:0 6px 0 4px}
+  .actions{gap:8px}
+  .metrics{grid-template-columns:repeat(3,1fr)}
+  .field-row{flex-direction:column;gap:0}
+  .modal{padding:18px;border-radius:var(--r-lg)}
+}
+
+/* alvos de toque de 44px onde o ponteiro não ajuda */
+@media (pointer:coarse){
+  .act,.icon-btn,.chip-x,.team-del,.modal-close{min-width:44px;min-height:44px}
+  .btn,.fp,.status-select{min-height:38px}
+  .card-acts{gap:0}
+}

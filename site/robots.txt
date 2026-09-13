@@ -1,0 +1,4 @@
+# O quadro tem demanda real de cliente. Isto não impede quem tem o link —
+# impede que o site apareça para quem buscar "naSala" no Google.
+User-agent: *
+Disallow: /

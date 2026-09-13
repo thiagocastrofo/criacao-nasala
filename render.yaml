@@ -1,0 +1,50 @@
+# Configuração do site no Render, versionada junto com o código.
+# Render → New → Blueprint → escolher este repositório.
+#
+# Não há build: o app é HTML, CSS e JS puros. Só o diretório `site/` vai ao ar;
+# `docs/` e `testes/` ficam de fora de propósito.
+services:
+  - type: web
+    name: criacao-nasala
+    runtime: static
+    branch: main
+    staticPublishPath: site
+    pullRequestPreviewsEnabled: false
+
+    headers:
+      # ── O header mais importante daqui ──────────────────────────────────
+      # "no-cache" não quer dizer "não guarde"; quer dizer "pergunte ao
+      # servidor antes de usar". Como não existe build, `app.js` e
+      # `styles.css` nunca mudam de nome — sem isto o navegador continua
+      # servindo a versão velha depois de um deploy e o time roda código
+      # antigo sem saber. Revalidar 360 KB não custa nada perto disso.
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+
+      # O quadro tem demanda real de cliente. Isto não impede quem tem o
+      # link, mas tira o site do Google.
+      - path: /*
+        name: X-Robots-Tag
+        value: noindex, nofollow
+
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=(), interest-cohort=()
+
+# Sem `routes`: o app é uma página só, sem roteamento de cliente. Um rewrite
+# catch-all faria qualquer endereço errado devolver o app em vez de um 404.
+#
+# Sem Content-Security-Policy: o app usa `onclick` inline em toda parte, o que
+# obrigaria `script-src 'unsafe-inline'` e esvaziaria quase todo o ganho — e um
+# `connect-src` errado quebraria a sincronização com o Firebase em silêncio.
+# Entra depois, em modo Report-Only, com uma carga real para conferir.

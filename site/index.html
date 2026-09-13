@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="color-scheme" content="light dark"/>
+<meta name="description" content="Pautas e demandas da naSala — nSco., cidade e nSeventos."/>
+<title>Gestão de Demandas — naSala</title>
+<link rel="stylesheet" href="assets/styles.css"/>
+</head>
+<body>
+
+<a class="sr-only" href="#lista">Pular para a lista de demandas</a>
+
+<!-- ═══ TELA DE CONFIGURAÇÃO ═══ -->
+<div class="overlay" id="setupScreen" role="dialog" aria-modal="true" aria-labelledby="setupTitle" hidden>
+  <div class="modal">
+    <div class="modal-hd"><h2 id="setupTitle">Configurar sincronização</h2></div>
+    <p class="modal-sub">Para o time inteiro ver os mesmos dados ao vivo, conecte um banco Firebase gratuito. Leva três minutos.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n" aria-hidden="true">1</div>
+        <div><p>Acesse <code>console.firebase.google.com</code>, crie um projeto e ative o <strong>Realtime Database</strong> em modo de teste.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-n" aria-hidden="true">2</div>
+        <div><p>Em <code>Configurações do projeto → Seus apps</code>, copie o <code>apiKey</code> e a <code>databaseURL</code>.</p></div>
+      </div>
+      <div class="step">
+        <div class="step-n" aria-hidden="true">3</div>
+        <div><p>Abra <code>assets/app.js</code>, preencha o objeto <code>FIREBASE_CONFIG</code> e faça o commit.</p></div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="skipSetup()">Usar sem sincronizar</button>
+      <button class="btn btn-primary" onclick="saveSetupConfig()">Copiar instruções</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ENTRADA ═══ -->
+<div class="auth" id="authScreen" hidden>
+  <form class="auth-box" onsubmit="submitAuth(event)" autocomplete="on">
+    <div class="auth-brand"><svg class="auth-mark" fill="currentColor" aria-hidden="true" focusable="false" viewBox="100 30 970 380"><path d="M573.5,269.15c-.78,2.93,0,5.18,1.62,7.22,3.17,3.99,7.47,5.71,12.4,5.91,16.68.66,31.32-16.26,29.16-33.19-2.37-18.55-10.03-35.13-18.57-51.38-3.74-7.11-8.08-13.89-12.08-20.87-1.21-2.11-2.08-2.68-4.02-.48-35.48,40.14-71.72,79.57-109.27,117.79-22.3,22.7-44.85,45.13-69.7,65.08-7.55,6.07-15.28,11.97-24.65,15.16-3.08,1.05-6.2,1.45-9.42,1.27-6.57-.36-10.77-5.79-9.48-12.25,1.28-6.39,6.76-11.7,13.2-12.84,3.56-.63,5.76,1.03,6.79,4.22,2.19,6.8,3.61,7.92,10.58,2.91,8.09-5.82,15.29-12.69,22.4-19.62,35.75-34.85,69.57-71.54,103.16-108.45,18.54-20.37,36.93-40.89,55.41-61.32,3.96-4.38,4-4.37,1.1-9.49-10.62-18.76-20.16-38.02-26.5-58.7-2.88-9.41-5.2-18.96-4.63-28.9.53-9.16,3.28-17.21,12.27-21.66,5.75-2.84,9.47-2.4,14.27,1.85,5.64,5,9.75,11.22,13.82,17.47,6.96,10.7,13.18,21.89,21.45,31.7,1.99,2.36,4.16,4.52,6.64,6.37,7.58,5.65,14.62,4.73,20.3-2.9,5.13-6.9,7.23-15.1,9.11-23.28,2.33-10.13,4.28-20.34,6.49-30.49,1.35-6.2,3.84-11.94,8.04-16.78,6.23-7.2,13.17-9.26,19.69-5.98,7.68,3.87,11.13,11.58,9.09,20.65-2.38,10.61-8.1,19.61-14.11,28.41-13.52,19.76-29.49,37.55-45.37,55.39-8.96,10.07-17.88,20.17-26.94,30.15-1.79,1.97-1.73,3.39-.36,5.53,12.41,19.36,23.41,39.44,30.79,61.33,2.73,8.09,4.73,16.38,5.16,24.92,1.06,20.94-13.07,38.61-34.65,43.6-8.5,1.97-16.89,1.9-25.05-1.52-7.71-3.23-12.47-8.95-13.5-17.28-1.02-8.28,2.5-14.77,9.08-19.58,5.17-3.77,10.94-6.08,17.49-5.89,2.53.08,4.92.7,7.06,2.08,5.09,3.28,5.64,9.44,1.25,13.57-5.17,4.86-12.4,5.04-19.5.26ZM555.45,81.99c.3,2.01.56,5.08,1.25,8.05,5.11,21.94,16.05,41.28,27.18,60.53,1,1.72,1.97,1.73,3.25.29,7.76-8.75,15.54-17.48,23.34-26.2,1.05-1.18,1.07-1.86-.54-2.58-10.58-4.7-17.89-12.92-23.91-22.47-4.47-7.09-8.8-14.28-13.31-21.36-2.16-3.39-4.63-6.57-7.78-9.15-2.01-1.65-3.77-1.49-5.58.38-3.13,3.23-3.7,7.25-3.9,12.51ZM647.56,87c8.57-12.86,17.31-25.61,22.16-40.48.47-1.43.5-3.02.56-4.55.07-1.59-.25-3.15-1.98-3.81-1.63-.62-2.99.05-4.21,1.13-1.89,1.68-3.2,3.77-4.31,6.01-6.51,13.16-9.33,27.42-12.23,41.69Z"/><path d="M162.76,254.55c4.47-3.12,8.61-6.04,12.78-8.92,14.01-9.7,28.22-19.08,43.19-27.24,5.82-3.17,11.72-6.2,18.22-7.76,6.62-1.59,11.67,1.57,13.32,8.22,1.77,7.12-.03,14.09-.96,21.09-1.04,7.89-1.17,15.81.32,23.64,2.41,12.68,9.92,17.56,22.58,14.84,10.08-2.16,19.27-6.41,27.64-12.39,21.91-15.64,44.71-29.73,69.89-39.59,9.29-3.64,18.86-6.17,28.83-7.09,2.86-.26,5.66,0,8.47.51,7.62,1.38,10.87,6.38,9.02,13.93-1.06,4.34-3.26,8.11-6.11,11.49-1.46,1.73-2.1,3.6-2.12,5.83-.03,4.37-.07,8.73.73,13.07,1.81,9.83,7.41,16.08,17.05,18.79,5.17,1.45,10.47,1.54,15.9,2.07-7.08,5.22-14.92,7.98-23.74,6.56-14.79-2.39-21.95-11.59-25.45-32.08-1.5-.27-2.25,1.01-3.23,1.69-23.37,16.18-49.03,26.91-76.89,32.44-4.2.83-8.52.77-12.73.23-4.63-.59-8.73-2.42-10.44-7.32-.89-2.56-2.27-.84-3.31-.37-7.45,3.4-15.06,6.2-23.2,7.52-11.53,1.87-21.18-2.74-26.67-13.06-4.49-8.44-5.89-17.68-6.43-27.04-.49-8.62-.21-17.25,1.03-25.82.06-.44-.05-.9-.07-1.27-.94-.42-1.53.05-2.12.42-16.73,10.5-33.57,20.84-49.1,33.1-8.42,6.65-14.95,15.1-21.94,23.12-4.25,4.88-9.44,7.81-16.16,7.32-4.87-.35-6.99-2.6-6.95-7.51.03-5.21,1.94-9.98,3.97-14.61,6.58-15.06,13.47-29.98,20.05-45.03,2.51-5.73,4.86-11.56,6.18-17.71.85-3.93-.81-5.47-4.64-4.17-5.41,1.83-10.3,4.75-15.15,7.71-20.13,12.28-39.36,25.8-56.98,41.53-2.3,2.05-4.47,4.21-6.42,6.61-1.39,1.7-1.51,3.13.37,4.49.1.07.18.15.27.23,1.8,1.79,4.63,3.19,3.83,6.27-.81,3.08-3.94,3.54-6.5,4.22-3.76,1-7.58,1.94-11.54,1.6-5.94-.5-8.56-4.49-6.7-10.17,1.1-3.34,3.1-6.17,5.77-8.37,27.6-22.7,55.84-44.54,86.39-63.21,4.54-2.78,9.36-5.05,14.44-6.73,2.88-.95,5.75-1.29,8.7-.41,3.19.96,5.27,2.9,6.08,6.26,1.16,4.8.42,9.41-1.07,13.95-5.04,15.41-11.43,30.3-17.63,45.26-.43,1.04-1.31,1.98-.79,3.85ZM320.64,277.51c1.38-.2,3.29-.31,5.1-.78,23.1-5.91,43.86-16.57,62.64-31.15,1.84-1.43,3.45-3.25,4.87-5.11,3.43-4.48,2.52-6.95-2.88-8.33-5.03-1.28-9.88-.21-14.6,1.35-15.97,5.29-29.96,14.38-43.98,23.36-5.57,3.57-10.79,7.67-15.17,12.69-1.5,1.72-3.73,3.55-2.56,6.1,1.14,2.48,3.91,1.58,6.57,1.86Z"/><path d="M788.22,232.36c-.11-.33-.36-.67-.3-.94,1.5-7.13-3.02-10.57-11.19-11.1-9.77-.64-18.97,2.13-27.99,5.45-20.67,7.6-39.6,18.5-57.7,30.9-8.39,5.75-16.65,11.72-23.62,19.21-1.47,1.58-4.2,3.41-2.85,5.52,1.5,2.35,4.38.55,6.44-.25,13.49-5.24,25.95-12.54,38.69-19.3,14.2-7.53,27.42-16.84,42.3-23.12,4.03-1.7,8.1-3.31,12.38-4.31,1.87-.44,3.76-.54,5.64-.31,4.07.51,5.96,3.28,5.05,7.27-.96,4.24-3.33,7.8-5.54,11.43-3.56,5.85-7.77,11.32-10.74,17.53-1.49,3.12-3.31,6.61-.73,9.62,2.52,2.94,6.33,2.67,9.94,1.78,5.66-1.41,10.93-3.84,16.15-6.34,17.83-8.56,34.78-18.68,51.8-28.7,2.5-1.47,2.99-3.79,3.71-6.13,5.3-17.3,10.93-34.5,19.23-50.65,8.25-16.05,17.83-31.23,31.07-43.75,6.87-6.49,14.53-11.74,23.97-13.85,5.66-1.26,11.28-1.08,16.77.8,7.58,2.59,10.77,8.24,9.2,16.08-1.44,7.21-4.92,13.51-8.84,19.6-8.69,13.48-19.23,25.46-30.26,37.02-13.88,14.55-28.34,28.51-43.6,41.63-2.08,1.79-3.31,3.83-3.77,6.56-3.52,20.67,2.55,37.76,18.92,51.04,3.25,2.63,7.09,4.1,11.08,5.43-3.32.95-6.65.79-9.94.29-16.86-2.56-27.19-12.76-32.75-28.33-2.28-6.37-3.62-12.96-3.85-19.75-.03-.91.4-2.13-.51-2.63-1.12-.62-1.93.57-2.76,1.12-14.53,9.58-29.49,18.42-45.49,25.36-8.48,3.68-17.14,6.74-26.41,7.84-3.61.43-7.11.15-10.54-.72-7.38-1.87-11.26-7.82-10.43-15.47.91-8.39,4.15-15.96,8.03-23.31.66-1.25,1.36-2.47,2.15-3.92-1.41-.2-2.11.69-2.93,1.19-22.52,13.76-45.25,27.1-69.97,36.65-6.85,2.65-13.86,4.74-21.19,5.64-3.49.43-6.88.16-10.08-1.24-5.07-2.22-6.11-5.95-2.95-10.48,3.89-5.58,8.82-10.18,13.99-14.53,27.73-23.33,57.93-42.54,92.42-54.33,12.05-4.12,24.43-6.58,37.27-3.93,2.1.43,4.13,1.06,5.96,2.19,3.62,2.24,4.74,5.36,3.41,9.42-1.29,3.94-5.25,8.94-8.62,10.82ZM859.64,229.68c.92.22,1.25-.37,1.64-.74,19.25-18.54,37.94-37.59,54.03-59.01,3.62-4.81,7.01-9.83,8.96-15.62,1.74-5.16.18-7.66-5.19-8.35-1.26-.16-2.6-.02-3.86.22-8.58,1.59-14.42,7.29-19.72,13.58-9.6,11.39-16.51,24.45-22.78,37.85-4.89,10.46-9.37,21.09-13.09,32.07Z"/><path d="M1004.17,253.92c-11.25,6.5-22.06,12.59-33.17,18.09-16.22,8.03-32.6,15.69-50.25,20.18-5.64,1.44-11.35,2.19-17.2,1.92-2.66-.12-5.13-.74-7.5-1.89-7.17-3.5-8.92-9.1-4.91-16.05,3.61-6.27,8.9-11.02,14.54-15.36,20.71-15.92,43.84-27.4,68.08-36.82,9.93-3.86,20.05-7.18,30.63-8.72,7.32-1.06,14.64-.83,21.69,1.8,7.53,2.81,10.05,8.21,7.41,15.76-1.59,4.54-4.38,8.34-7.39,12.01-5.56,6.79-4.73,15.07,2.18,20.59,6.61,5.28,14.52,7.27,22.69,8.31,13.45,1.71,26.88.52,40.32-.54,19.32-1.52,38.5-4.15,57.66-6.99,21.75-3.22,43.24-7.78,64.69-12.56,7.29-1.62,14.66-2.55,22.15-1.89,1.17.1,2.35.27,3.49.56,2.96.76,5.79,1.85,6.17,5.43.38,3.66-1.7,6.01-4.7,7.65-2.78,1.53-6.01,2.5-8.9,1.43-12.67-4.67-24.86-.8-37.32,1.13-33.95,5.27-67.66,12.18-101.84,15.95-13.74,1.51-27.52,2.73-41.38,2.24-6.15-.22-12.28-.81-18.24-2.38-15.4-4.06-26.29-12.65-28.89-29.88ZM914.12,284.61c3.37-.03,6.55-.95,9.66-2.09,27.36-10.03,52.8-23.67,76.28-40.91,2.27-1.67,4.36-3.63,6.34-5.65,1.36-1.39,3.23-3.05,2.33-5.18-.89-2.11-3.32-1.88-5.31-2-3.46-.2-6.85.34-10.18,1.16-25.47,6.3-48.38,18.08-69.88,32.82-5.27,3.61-10.3,7.59-14.01,12.91-1.37,1.97-2.56,4.14-1.15,6.57,1.31,2.26,3.6,2.42,5.92,2.36Z"/></svg><span class="sr-only">naSala</span></div>
+    <h1 class="auth-title" id="authTitle">Entrar</h1>
+    <p class="auth-sub" id="authSub">O quadro de demandas da naSala.</p>
+
+    <div class="field" id="authNameField" hidden>
+      <label for="authName">Nome</label>
+      <input type="text" id="authName" name="name" autocomplete="name" placeholder="Como o time te chama"/>
+    </div>
+    <div class="field">
+      <label for="authEmail">E-mail</label>
+      <input type="email" id="authEmail" name="email" autocomplete="email" required placeholder="voce@nasala.com.br"/>
+    </div>
+    <div class="field">
+      <label for="authPass">Senha</label>
+      <input type="password" id="authPass" name="password" autocomplete="current-password" required minlength="8"/>
+    </div>
+    <div class="field" id="authPass2Field" hidden>
+      <label for="authPass2">Repita a senha</label>
+      <input type="password" id="authPass2" name="password2" autocomplete="new-password" minlength="8"/>
+    </div>
+
+    <p class="auth-error" id="authError" role="alert" hidden></p>
+
+    <button type="submit" class="btn btn-primary auth-submit" id="authSubmit">Entrar</button>
+
+    <p class="auth-switch">
+      <span id="authSwitchText">Ainda não tem conta?</span>
+      <button type="button" class="auth-link" id="authSwitchBtn" onclick="toggleAuthMode()">Criar uma</button>
+    </p>
+
+    <p class="auth-note">
+      Esta tela organiza quem mexe em quê dentro do time. Ela <strong>não</strong>
+      protege o banco: as regras do Firebase ainda estão abertas. Veja o README
+      para fechar de verdade.
+    </p>
+  </form>
+</div>
+
+<div id="appShell" hidden>
+
+<!-- ═══ CABEÇALHO ═══ -->
+<header class="topbar">
+  <div class="topbar-inner">
+
+    <div class="brand-row">
+      <svg class="brand-mark" fill="currentColor" aria-hidden="true" focusable="false" viewBox="100 30 970 380"><path d="M573.5,269.15c-.78,2.93,0,5.18,1.62,7.22,3.17,3.99,7.47,5.71,12.4,5.91,16.68.66,31.32-16.26,29.16-33.19-2.37-18.55-10.03-35.13-18.57-51.38-3.74-7.11-8.08-13.89-12.08-20.87-1.21-2.11-2.08-2.68-4.02-.48-35.48,40.14-71.72,79.57-109.27,117.79-22.3,22.7-44.85,45.13-69.7,65.08-7.55,6.07-15.28,11.97-24.65,15.16-3.08,1.05-6.2,1.45-9.42,1.27-6.57-.36-10.77-5.79-9.48-12.25,1.28-6.39,6.76-11.7,13.2-12.84,3.56-.63,5.76,1.03,6.79,4.22,2.19,6.8,3.61,7.92,10.58,2.91,8.09-5.82,15.29-12.69,22.4-19.62,35.75-34.85,69.57-71.54,103.16-108.45,18.54-20.37,36.93-40.89,55.41-61.32,3.96-4.38,4-4.37,1.1-9.49-10.62-18.76-20.16-38.02-26.5-58.7-2.88-9.41-5.2-18.96-4.63-28.9.53-9.16,3.28-17.21,12.27-21.66,5.75-2.84,9.47-2.4,14.27,1.85,5.64,5,9.75,11.22,13.82,17.47,6.96,10.7,13.18,21.89,21.45,31.7,1.99,2.36,4.16,4.52,6.64,6.37,7.58,5.65,14.62,4.73,20.3-2.9,5.13-6.9,7.23-15.1,9.11-23.28,2.33-10.13,4.28-20.34,6.49-30.49,1.35-6.2,3.84-11.94,8.04-16.78,6.23-7.2,13.17-9.26,19.69-5.98,7.68,3.87,11.13,11.58,9.09,20.65-2.38,10.61-8.1,19.61-14.11,28.41-13.52,19.76-29.49,37.55-45.37,55.39-8.96,10.07-17.88,20.17-26.94,30.15-1.79,1.97-1.73,3.39-.36,5.53,12.41,19.36,23.41,39.44,30.79,61.33,2.73,8.09,4.73,16.38,5.16,24.92,1.06,20.94-13.07,38.61-34.65,43.6-8.5,1.97-16.89,1.9-25.05-1.52-7.71-3.23-12.47-8.95-13.5-17.28-1.02-8.28,2.5-14.77,9.08-19.58,5.17-3.77,10.94-6.08,17.49-5.89,2.53.08,4.92.7,7.06,2.08,5.09,3.28,5.64,9.44,1.25,13.57-5.17,4.86-12.4,5.04-19.5.26ZM555.45,81.99c.3,2.01.56,5.08,1.25,8.05,5.11,21.94,16.05,41.28,27.18,60.53,1,1.72,1.97,1.73,3.25.29,7.76-8.75,15.54-17.48,23.34-26.2,1.05-1.18,1.07-1.86-.54-2.58-10.58-4.7-17.89-12.92-23.91-22.47-4.47-7.09-8.8-14.28-13.31-21.36-2.16-3.39-4.63-6.57-7.78-9.15-2.01-1.65-3.77-1.49-5.58.38-3.13,3.23-3.7,7.25-3.9,12.51ZM647.56,87c8.57-12.86,17.31-25.61,22.16-40.48.47-1.43.5-3.02.56-4.55.07-1.59-.25-3.15-1.98-3.81-1.63-.62-2.99.05-4.21,1.13-1.89,1.68-3.2,3.77-4.31,6.01-6.51,13.16-9.33,27.42-12.23,41.69Z"/><path d="M162.76,254.55c4.47-3.12,8.61-6.04,12.78-8.92,14.01-9.7,28.22-19.08,43.19-27.24,5.82-3.17,11.72-6.2,18.22-7.76,6.62-1.59,11.67,1.57,13.32,8.22,1.77,7.12-.03,14.09-.96,21.09-1.04,7.89-1.17,15.81.32,23.64,2.41,12.68,9.92,17.56,22.58,14.84,10.08-2.16,19.27-6.41,27.64-12.39,21.91-15.64,44.71-29.73,69.89-39.59,9.29-3.64,18.86-6.17,28.83-7.09,2.86-.26,5.66,0,8.47.51,7.62,1.38,10.87,6.38,9.02,13.93-1.06,4.34-3.26,8.11-6.11,11.49-1.46,1.73-2.1,3.6-2.12,5.83-.03,4.37-.07,8.73.73,13.07,1.81,9.83,7.41,16.08,17.05,18.79,5.17,1.45,10.47,1.54,15.9,2.07-7.08,5.22-14.92,7.98-23.74,6.56-14.79-2.39-21.95-11.59-25.45-32.08-1.5-.27-2.25,1.01-3.23,1.69-23.37,16.18-49.03,26.91-76.89,32.44-4.2.83-8.52.77-12.73.23-4.63-.59-8.73-2.42-10.44-7.32-.89-2.56-2.27-.84-3.31-.37-7.45,3.4-15.06,6.2-23.2,7.52-11.53,1.87-21.18-2.74-26.67-13.06-4.49-8.44-5.89-17.68-6.43-27.04-.49-8.62-.21-17.25,1.03-25.82.06-.44-.05-.9-.07-1.27-.94-.42-1.53.05-2.12.42-16.73,10.5-33.57,20.84-49.1,33.1-8.42,6.65-14.95,15.1-21.94,23.12-4.25,4.88-9.44,7.81-16.16,7.32-4.87-.35-6.99-2.6-6.95-7.51.03-5.21,1.94-9.98,3.97-14.61,6.58-15.06,13.47-29.98,20.05-45.03,2.51-5.73,4.86-11.56,6.18-17.71.85-3.93-.81-5.47-4.64-4.17-5.41,1.83-10.3,4.75-15.15,7.71-20.13,12.28-39.36,25.8-56.98,41.53-2.3,2.05-4.47,4.21-6.42,6.61-1.39,1.7-1.51,3.13.37,4.49.1.07.18.15.27.23,1.8,1.79,4.63,3.19,3.83,6.27-.81,3.08-3.94,3.54-6.5,4.22-3.76,1-7.58,1.94-11.54,1.6-5.94-.5-8.56-4.49-6.7-10.17,1.1-3.34,3.1-6.17,5.77-8.37,27.6-22.7,55.84-44.54,86.39-63.21,4.54-2.78,9.36-5.05,14.44-6.73,2.88-.95,5.75-1.29,8.7-.41,3.19.96,5.27,2.9,6.08,6.26,1.16,4.8.42,9.41-1.07,13.95-5.04,15.41-11.43,30.3-17.63,45.26-.43,1.04-1.31,1.98-.79,3.85ZM320.64,277.51c1.38-.2,3.29-.31,5.1-.78,23.1-5.91,43.86-16.57,62.64-31.15,1.84-1.43,3.45-3.25,4.87-5.11,3.43-4.48,2.52-6.95-2.88-8.33-5.03-1.28-9.88-.21-14.6,1.35-15.97,5.29-29.96,14.38-43.98,23.36-5.57,3.57-10.79,7.67-15.17,12.69-1.5,1.72-3.73,3.55-2.56,6.1,1.14,2.48,3.91,1.58,6.57,1.86Z"/><path d="M788.22,232.36c-.11-.33-.36-.67-.3-.94,1.5-7.13-3.02-10.57-11.19-11.1-9.77-.64-18.97,2.13-27.99,5.45-20.67,7.6-39.6,18.5-57.7,30.9-8.39,5.75-16.65,11.72-23.62,19.21-1.47,1.58-4.2,3.41-2.85,5.52,1.5,2.35,4.38.55,6.44-.25,13.49-5.24,25.95-12.54,38.69-19.3,14.2-7.53,27.42-16.84,42.3-23.12,4.03-1.7,8.1-3.31,12.38-4.31,1.87-.44,3.76-.54,5.64-.31,4.07.51,5.96,3.28,5.05,7.27-.96,4.24-3.33,7.8-5.54,11.43-3.56,5.85-7.77,11.32-10.74,17.53-1.49,3.12-3.31,6.61-.73,9.62,2.52,2.94,6.33,2.67,9.94,1.78,5.66-1.41,10.93-3.84,16.15-6.34,17.83-8.56,34.78-18.68,51.8-28.7,2.5-1.47,2.99-3.79,3.71-6.13,5.3-17.3,10.93-34.5,19.23-50.65,8.25-16.05,17.83-31.23,31.07-43.75,6.87-6.49,14.53-11.74,23.97-13.85,5.66-1.26,11.28-1.08,16.77.8,7.58,2.59,10.77,8.24,9.2,16.08-1.44,7.21-4.92,13.51-8.84,19.6-8.69,13.48-19.23,25.46-30.26,37.02-13.88,14.55-28.34,28.51-43.6,41.63-2.08,1.79-3.31,3.83-3.77,6.56-3.52,20.67,2.55,37.76,18.92,51.04,3.25,2.63,7.09,4.1,11.08,5.43-3.32.95-6.65.79-9.94.29-16.86-2.56-27.19-12.76-32.75-28.33-2.28-6.37-3.62-12.96-3.85-19.75-.03-.91.4-2.13-.51-2.63-1.12-.62-1.93.57-2.76,1.12-14.53,9.58-29.49,18.42-45.49,25.36-8.48,3.68-17.14,6.74-26.41,7.84-3.61.43-7.11.15-10.54-.72-7.38-1.87-11.26-7.82-10.43-15.47.91-8.39,4.15-15.96,8.03-23.31.66-1.25,1.36-2.47,2.15-3.92-1.41-.2-2.11.69-2.93,1.19-22.52,13.76-45.25,27.1-69.97,36.65-6.85,2.65-13.86,4.74-21.19,5.64-3.49.43-6.88.16-10.08-1.24-5.07-2.22-6.11-5.95-2.95-10.48,3.89-5.58,8.82-10.18,13.99-14.53,27.73-23.33,57.93-42.54,92.42-54.33,12.05-4.12,24.43-6.58,37.27-3.93,2.1.43,4.13,1.06,5.96,2.19,3.62,2.24,4.74,5.36,3.41,9.42-1.29,3.94-5.25,8.94-8.62,10.82ZM859.64,229.68c.92.22,1.25-.37,1.64-.74,19.25-18.54,37.94-37.59,54.03-59.01,3.62-4.81,7.01-9.83,8.96-15.62,1.74-5.16.18-7.66-5.19-8.35-1.26-.16-2.6-.02-3.86.22-8.58,1.59-14.42,7.29-19.72,13.58-9.6,11.39-16.51,24.45-22.78,37.85-4.89,10.46-9.37,21.09-13.09,32.07Z"/><path d="M1004.17,253.92c-11.25,6.5-22.06,12.59-33.17,18.09-16.22,8.03-32.6,15.69-50.25,20.18-5.64,1.44-11.35,2.19-17.2,1.92-2.66-.12-5.13-.74-7.5-1.89-7.17-3.5-8.92-9.1-4.91-16.05,3.61-6.27,8.9-11.02,14.54-15.36,20.71-15.92,43.84-27.4,68.08-36.82,9.93-3.86,20.05-7.18,30.63-8.72,7.32-1.06,14.64-.83,21.69,1.8,7.53,2.81,10.05,8.21,7.41,15.76-1.59,4.54-4.38,8.34-7.39,12.01-5.56,6.79-4.73,15.07,2.18,20.59,6.61,5.28,14.52,7.27,22.69,8.31,13.45,1.71,26.88.52,40.32-.54,19.32-1.52,38.5-4.15,57.66-6.99,21.75-3.22,43.24-7.78,64.69-12.56,7.29-1.62,14.66-2.55,22.15-1.89,1.17.1,2.35.27,3.49.56,2.96.76,5.79,1.85,6.17,5.43.38,3.66-1.7,6.01-4.7,7.65-2.78,1.53-6.01,2.5-8.9,1.43-12.67-4.67-24.86-.8-37.32,1.13-33.95,5.27-67.66,12.18-101.84,15.95-13.74,1.51-27.52,2.73-41.38,2.24-6.15-.22-12.28-.81-18.24-2.38-15.4-4.06-26.29-12.65-28.89-29.88ZM914.12,284.61c3.37-.03,6.55-.95,9.66-2.09,27.36-10.03,52.8-23.67,76.28-40.91,2.27-1.67,4.36-3.63,6.34-5.65,1.36-1.39,3.23-3.05,2.33-5.18-.89-2.11-3.32-1.88-5.31-2-3.46-.2-6.85.34-10.18,1.16-25.47,6.3-48.38,18.08-69.88,32.82-5.27,3.61-10.3,7.59-14.01,12.91-1.37,1.97-2.56,4.14-1.15,6.57,1.31,2.26,3.6,2.42,5.92,2.36Z"/></svg>
+      <span class="sr-only">naSala</span>
+    </div>
+
+    <div class="actions">
+      <!-- Grupo de vista: símbolos SEM borda dentro de um contêiner único.
+           A orientação é explícita — "prefer system-provided symbols without
+           borders; borders aren't necessary because the section provides a
+           visible container" — e "reduce the use of toolbar backgrounds and
+           tinted controls". Antes eram dois pills com borda própria. -->
+      <div class="tb-group" role="group" aria-label="Vista do quadro">
+        <button class="tb-item" id="btnHide" onclick="toggleHide()" aria-pressed="false"
+                aria-label="Ocultar entregues" title="Ocultar entregues (H)">
+          <span id="btnHideIcon" aria-hidden="true"></span>
+        </button>
+        <span class="tb-div" aria-hidden="true"></span>
+        <button class="tb-item" onclick="openDashboard()" aria-label="Abrir o dashboard" title="Dashboard">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.6" y="8.8" width="3" height="5.6" rx=".8" fill="currentColor"/><rect x="6.5" y="5" width="3" height="9.4" rx=".8" fill="currentColor"/><rect x="11.4" y="1.6" width="3" height="12.8" rx=".8" fill="currentColor"/></svg>
+        </button>
+      </div>
+
+        <div class="menu-wrap">
+          <button class="btn btn-account" id="btnAccount" onclick="toggleMore()"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="moreMenu"></button>
+          <div class="menu" id="moreMenu" role="menu" aria-labelledby="btnAccount" hidden>
+            <div class="menu-user" id="menuUser"></div>
+            <button role="menuitem" onclick="closeMore();openMe()">
+              <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="6.5" cy="4" r="2.2" stroke="currentColor" stroke-width="1.24"/><path d="M2.2 11.2c.5-2.2 2.2-3.4 4.3-3.4s3.8 1.2 4.3 3.4" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+              Meu perfil
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <button class="narrow-only" role="menuitem" onclick="closeMore();openDashboard()">
+              <svg width="15" height="15" viewBox="0 0 13 13" aria-hidden="true"><rect x="1" y="7" width="2.5" height="5" rx=".5" fill="currentColor"/><rect x="5.25" y="4" width="2.5" height="8" rx=".5" fill="currentColor"/><rect x="9.5" y="1.5" width="2.5" height="10.5" rx=".5" fill="currentColor"/></svg>
+              Dashboard
+            </button>
+            <button class="admin-only" role="menuitem" onclick="closeMore();openProfiles()">
+              <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="4.6" cy="4.3" r="1.9" stroke="currentColor" stroke-width="1.24"/><path d="M1.4 11c.4-1.9 1.6-2.9 3.2-2.9S7.4 9.1 7.8 11" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><circle cx="9.4" cy="4.9" r="1.5" stroke="currentColor" stroke-width="1.24"/><path d="M8.2 10.6c.3-1.4 1.2-2.1 2.3-2.1c.5 0 1.1.2 1.5.6" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+              Perfis do time
+            </button>
+            <button class="admin-only" role="menuitem" onclick="closeMore();openTeam()">
+              <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="5" cy="4" r="2" stroke="currentColor" stroke-width="1.24"/><path d="M1.5 11c.4-1.9 1.8-2.9 3.5-2.9S8.1 9.1 8.5 11" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><line x1="10" y1="4" x2="10" y2="8" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><line x1="8" y1="6" x2="12" y2="6" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+              Editar time
+            </button>
+            <button role="menuitem" id="btnLog" onclick="closeMore();openLog()">
+              <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><rect x="1.5" y="1.5" width="10" height="10" rx="2.5" stroke="currentColor" stroke-width="1.24"/><line x1="4" y1="4.5" x2="9" y2="4.5" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><line x1="4" y1="6.5" x2="9" y2="6.5" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><line x1="4" y1="8.5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+              Log de atividades
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <button role="menuitem" id="btnTheme" onclick="toggleTheme()">
+              <span id="themeIcon" aria-hidden="true"></span>
+              <span id="themeLabel">Tema escuro</span>
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <button class="menu-danger" role="menuitem" onclick="closeMore();signOut()">
+              <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M5 1.8H2.6A1.1 1.1 0 0 0 1.5 2.9v7.2a1.1 1.1 0 0 0 1.1 1.1H5" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><path d="M8.4 9.1L11 6.5 8.4 3.9M11 6.5H4.8" stroke="currentColor" stroke-width="1.24" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Sair da conta
+            </button>
+            <div class="menu-sep" role="separator"></div>
+            <p class="menu-keys">
+              <span><kbd>N</kbd> nova</span>
+              <span><kbd>/</kbd> buscar</span>
+              <span><kbd>H</kbd> ocultar entregues</span>
+            </p>
+          </div>
+        </div>
+      <button class="btn btn-primary" onclick="openModal(null)" title="Nova demanda (N)">
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.14" stroke-linecap="round"/></svg>
+        Nova
+      </button>
+    </div>
+
+    <div class="title-wrap">
+      <h1 class="title-display" id="titleDisplay">Gestão de Demandas</h1>
+      <input class="title-input" id="titleInput" type="text" aria-label="Título do quadro"
+             onblur="saveTitleEdit()" onkeydown="if(event.key==='Enter')saveTitleEdit();if(event.key==='Escape')cancelTitleEdit()"/>
+      <button class="icon-btn admin-only" onclick="startTitleEdit()" aria-label="Editar título do quadro">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M9 1.5l2.5 2.5-7.5 7.5H1.5v-2.5l7.5-7.5z" stroke="currentColor" stroke-width="1.24" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+  </div>
+</header>
+
+<!-- ═══ CORPO ═══ -->
+<main class="body">
+
+  <!-- estado da carteira: um objeto só, no lugar das quatro caixas de número -->
+  <section class="state" aria-labelledby="stateHeading">
+    <h2 class="sr-only" id="stateHeading">Situação das demandas</h2>
+    <p class="sr-only" id="stateSummary" role="status"></p>
+    <div class="rail" id="stateRail" role="group" aria-label="Proporção por status. Clique numa faixa para filtrar"></div>
+    <div class="stats" id="stateChips" role="group" aria-label="Filtrar por status"></div>
+  </section>
+
+  <div id="lista" tabindex="-1"></div>
+</main>
+
+<!-- ═══ MENU FLUTUANTE: FILTROS E BUSCA ═══
+     Os filtros saíram do topo e viraram um menu que flutua sobre a lista.
+     Cada botão abre a sua gaveta acima dele; o filtro ativo aparece no
+     próprio botão, então dá para ver o que está filtrado sem abrir nada. -->
+<div class="dock" id="dock">
+  <div class="dock-pop" id="popCat" role="group" aria-label="Filtrar por casa" hidden>
+    <div class="pill-track"><button type="button" class="pill-arrow" data-scroll="-1" aria-label="Ver mais à esquerda"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="fpills" id="catPills"></div><button type="button" class="pill-arrow" data-scroll="1" aria-label="Ver mais à direita"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+  </div>
+  <div class="dock-pop" id="popResp" role="group" aria-label="Filtrar por pessoa" hidden>
+    <div class="pill-track"><button type="button" class="pill-arrow" data-scroll="-1" aria-label="Ver mais à esquerda"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3.5L5.5 8l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div class="fpills" id="respPills"></div><button type="button" class="pill-arrow" data-scroll="1" aria-label="Ver mais à direita"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
+  </div>
+  <div class="dock-pop dock-pop-search" id="popSearch" hidden>
+    <label class="sr-only" for="srch">Buscar demanda</label>
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6.8" cy="6.8" r="4.9" stroke="currentColor" stroke-width="1.5"/><line x1="10.4" y1="10.4" x2="14.1" y2="14.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    <input class="search-inp" id="srch" type="search" placeholder="Buscar demanda…"
+           oninput="queueRender()" onkeydown="if(event.key==='Escape')closeDock()"/>
+    <button type="button" class="dock-clear" onclick="clearSearch()" aria-label="Limpar busca" hidden id="srchClear">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.14" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <div class="dock-bar" role="toolbar" aria-label="Filtros e busca">
+    <button type="button" class="dock-btn" id="dockCat" onclick="toggleDock('Cat')"
+            aria-haspopup="true" aria-expanded="false" aria-controls="popCat">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2 6.6L8 2.2l6 4.4V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <span>Casas</span>
+      <span class="dock-tag" id="dockCatTag" hidden></span>
+    </button>
+    <span class="dock-div" aria-hidden="true"></span>
+    <button type="button" class="dock-btn" id="dockResp" onclick="toggleDock('Resp')"
+            aria-haspopup="true" aria-expanded="false" aria-controls="popResp">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6.2" cy="5.4" r="2.4" stroke="currentColor" stroke-width="1.5"/><path d="M1.9 13.4c.5-2.5 2.1-3.8 4.3-3.8s3.8 1.3 4.3 3.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="11.6" cy="6.2" r="1.9" stroke="currentColor" stroke-width="1.5"/><path d="M10.2 13c.3-1.8 1.4-2.7 2.8-2.7c.6 0 1.3.2 1.8.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span>Time</span>
+      <span class="dock-tag" id="dockRespTag" hidden></span>
+    </button>
+    <span class="dock-div" aria-hidden="true"></span>
+    <button type="button" class="dock-btn dock-btn-icon" id="dockSearch" onclick="toggleDock('Search')"
+            aria-haspopup="true" aria-expanded="false" aria-controls="popSearch" aria-label="Buscar demanda" title="Buscar (/ ou ⌘K)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6.8" cy="6.8" r="4.9" stroke="currentColor" stroke-width="1.5"/><line x1="10.4" y1="10.4" x2="14.1" y2="14.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</div>
+
+</div><!-- /appShell -->
+
+<!-- ═══ AVISOS ═══ -->
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ═══ SINCRONIZAÇÃO ═══ -->
+<div class="sync" id="syncBanner" role="status" aria-live="polite" hidden>
+  <span class="sync-dot ok" id="syncDot" aria-hidden="true"></span>
+  <span id="syncLabel">Sincronizado</span>
+</div>
+
+<!-- ═══ MODAL: DEMANDA ═══ -->
+<div class="overlay" id="taskOverlay" role="dialog" aria-modal="true" aria-labelledby="taskModalTitle" hidden
+     onclick="if(event.target===this)closeTask()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="taskModalTitle">Nova demanda</h2>
+      <button class="modal-close" onclick="closeTask()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="eId"/>
+    <div class="field"><label for="fTitle">Título</label><input type="text" id="fTitle" placeholder="Nome do projeto…"/></div>
+    <div class="field"><label for="fDesc">Descrição</label><textarea id="fDesc" rows="2" placeholder="Detalhes…"></textarea></div>
+    <div class="field"><label for="fCat">Casa</label><select id="fCat"></select></div>
+    <div class="field">
+      <span class="sr-only" id="respLabel">Responsáveis</span>
+      <label id="respVisualLabel" for="multiWrap">Responsáveis</label>
+      <div class="multi-wrap" id="multiWrap" tabindex="0" role="button" aria-expanded="false" aria-controls="multiDrop"
+           onclick="toggleDrop()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleDrop()}"></div>
+      <div class="multi-drop" id="multiDrop" hidden></div>
+    </div>
+    <div class="field"><label for="fStatus">Status</label>
+      <select id="fStatus">
+        <option value="pendente">Pendente</option>
+        <option value="em andamento">Em andamento</option>
+        <option value="concluído">Concluído</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label for="fDate">Data de entrega</label><input type="date" id="fDate"/></div>
+      <div class="field"><label for="fPresent">Data de apresentação</label><input type="date" id="fPresent"/></div>
+    </div>
+    <div class="field"><label for="fSize">Porte do projeto</label>
+      <select id="fSize">
+        <option value="P">Pequeno</option>
+        <option value="M">Médio</option>
+        <option value="G">Grande</option>
+      </select>
+    </div>
+    <div class="field">
+      <label class="check-row" for="fWon">
+        <input type="checkbox" id="fWon"/>
+        <span>Foi uma concorrência ganha</span>
+      </label>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeTask()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTask()">Salvar demanda</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: TIME ═══ -->
+<div class="overlay" id="teamOverlay" role="dialog" aria-modal="true" aria-labelledby="teamTitle" hidden
+     onclick="if(event.target===this)closeTeam()">
+  <div class="modal">
+    <div class="modal-hd">
+      <h2 id="teamTitle">Editar time</h2>
+      <button class="modal-close" onclick="closeTeam()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Renomeie, adicione ou remova pessoas. Clique no avatar para trocar cor e ícone.</p>
+    <div id="teamList"></div>
+    <button class="btn-block" onclick="addMember()">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.14" stroke-linecap="round"/></svg>
+      Adicionar pessoa
+    </button>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeTeam()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTeam()">Salvar time</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: AVATAR ═══ -->
+<div class="overlay" id="avOverlay" role="dialog" aria-modal="true" aria-labelledby="avTitle" hidden
+     onclick="if(event.target===this)closeAv()">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-hd">
+      <h2 id="avTitle">Editar avatar</h2>
+      <button class="modal-close" onclick="closeAv()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="av-preview-wrap"><div class="av-preview-lg" id="avPreviewLg" role="img" aria-label="Prévia do avatar"></div></div>
+    <div class="field">
+      <label for="customColor">Cor</label>
+      <div class="color-swatches" id="colorSwatches" role="group" aria-label="Cores sugeridas"></div>
+      <input type="color" id="customColor" aria-label="Cor personalizada" oninput="setAvColor(this.value)"
+             style="width:100%;height:38px;padding:2px 4px;cursor:pointer"/>
+    </div>
+    <div class="field">
+      <label id="svgLabel">Ícone SVG (opcional)</label>
+      <div class="upload-row">
+        <button class="btn" onclick="document.getElementById('svgUpload').click()" aria-describedby="svgLabel">Enviar SVG</button>
+        <button class="btn btn-danger" id="removeSvgBtn" onclick="removeAvSvg()" hidden>Remover</button>
+      </div>
+      <input type="file" id="svgUpload" accept=".svg,image/svg+xml" class="sr-only" onchange="handleSvg(event)"/>
+    </div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeAv()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAv()">Salvar avatar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: LOG ═══ -->
+<div class="overlay" id="logOverlay" role="dialog" aria-modal="true" aria-labelledby="logTitle" hidden
+     onclick="if(event.target===this)closeLog()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hd">
+      <h2 id="logTitle">Log de atividades</h2>
+      <button class="modal-close" onclick="closeLog()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub" id="logCount"></p>
+    <div class="log-list" id="logList"></div>
+    <div class="modal-btns">
+      <button class="btn btn-danger admin-only" onclick="clearLog()">Limpar histórico</button>
+      <button class="btn btn-primary" onclick="closeLog()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CONFIRMAÇÃO ═══
+     Substitui o confirm() do navegador, que é bloqueado quando a página roda
+     dentro de um iframe sem permissão de modal — e bloqueado ele devolve
+     "false", fazendo a ação falhar em silêncio. Era esse o "sair não
+     funciona". -->
+<div class="overlay" id="askOverlay" role="dialog" aria-modal="true" aria-labelledby="askTitle" hidden
+     onclick="if(event.target===this)askResolve(false)">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-hd"><h2 id="askTitle"></h2></div>
+    <p class="modal-sub" id="askMsg"></p>
+    <div class="modal-btns">
+      <button class="btn" onclick="askResolve(false)">Cancelar</button>
+      <button class="btn btn-primary" id="askOk" onclick="askResolve(true)"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: MEU PERFIL ═══ -->
+<div class="overlay" id="meOverlay" role="dialog" aria-modal="true" aria-labelledby="meTitle" hidden
+     onclick="if(event.target===this)closeMe()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-hd">
+      <h2 id="meTitle">Meu perfil</h2>
+      <button class="modal-close" onclick="closeMe()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="meBody"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: PERFIS DO TIME (administrador) ═══ -->
+<div class="overlay" id="profilesOverlay" role="dialog" aria-modal="true" aria-labelledby="profilesTitle" hidden
+     onclick="if(event.target===this)closeProfiles()">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-hd">
+      <h2 id="profilesTitle">Perfis do time</h2>
+      <button class="modal-close" onclick="closeProfiles()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Cargo, data de início e avatar são editáveis direto no card. Administradores editam todos os perfis e definem quem mais é administrador.</p>
+    <div class="profiles-grid" id="profilesGrid"></div>
+    <div class="modal-btns"><button class="btn btn-primary" onclick="closeProfiles()">Fechar</button></div>
+  </div>
+</div>
+
+<!-- ═══ PAINEL ═══ -->
+<div class="overlay" id="dashOverlay" role="dialog" aria-modal="true" aria-labelledby="dashTitle" hidden
+     onclick="if(event.target===this)closeDashboard()">
+  <div class="modal modal-wide">
+    <div class="modal-hd">
+      <h2 id="dashTitle">Dashboard</h2>
+      <button class="modal-close" onclick="closeDashboard()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div id="dashBody"></div>
+  </div>
+</div>
+
+<script src="assets/app.js" type="module"></script>
+</body>
+</html>

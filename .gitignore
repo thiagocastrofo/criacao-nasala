@@ -1,0 +1,6 @@
+# Capturas de tela de teste: úteis na hora, lixo no repositório.
+*.png
+*.jpg
+node_modules/
+package-lock.json
+.DS_Store
