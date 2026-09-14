@@ -239,9 +239,11 @@ animam de propósito.
    `currentColor` — acende junto com o estado do controle. É a assinatura do
    quadro; não substitua por texto nem por uma quinta paleta.
 3. **Ênfase por preenchimento, arquivo por fio.** Demanda em aberto = card
-   cheio; entregue = só contorno (`.card.is-done`). O recurso vem do letreiro
-   da nSco., desenhado dentro de um quadro de fio. Entregue **nunca** volta a
-   ser `opacity:.5` — aquilo dava 1,4:1 de contraste.
+   cheio; entregue = só contorno (`.card.is-done`). A regra continua valendo,
+   mas a justificativa antiga não: ela vinha do letreiro da nSco. desenhado
+   dentro de um quadro de fio, e o letreiro novo (set/2026) não tem quadro.
+   O que sustenta a regra hoje é só a hierarquia — e o fato de que entregue
+   **nunca** pode voltar a ser `opacity:.5`, que dava 1,4:1 de contraste.
 4. **Uma ênfase só.** O único preenchimento saturado é o botão "Nova".
    Atraso = fio lateral vermelho + etiqueta tingida.
 5. **Aberto primeiro.** `sortTasks()` põe atrasado → próximo → em aberto →
@@ -574,6 +576,37 @@ Na grade de perfis os ocultos vão para o fim (a ordenação guarda o índice
 original de `team`, que é por onde os campos editáveis escrevem), com borda
 tracejada e etiqueta laranja "oculto". O cartão continua inteiro e editável —
 é ele que traz a pessoa de volta.
+
+### Letreiro da nSco. (trocado em set/2026)
+
+Veio de um `.ai` da agência, que é PDF por dentro. Sem Inkscape nem poppler,
+o caminho foi PyMuPDF: `get_drawings()` devolve os itens já em coordenadas de
+página com y para baixo — a mesma orientação do SVG — então dá para achatar
+tudo num `d` só, sem `transform` por forma, que é o que deixa a marca pequena
+e legível dentro do `app.js`.
+
+A conversão está em **`ferramentas/ai-para-svg.py`**, para quando o letreiro da
+cidade ou do eventos mudar:
+
+```bash
+pip install pymupdf
+python3 ferramentas/ai-para-svg.py logo.ai
+```
+
+O letreiro novo **não tem moldura**; o antigo era condensado dentro de um
+retângulo de fio. Isso muda duas coisas:
+
+- **Proporção**: 1,42 de largura/altura virou 3,32. Na mesma altura, a marca
+  passa de 30px para 70px de largura.
+- **Altura ótica**: no letreiro antigo as letras ocupavam 70% da caixa (o resto
+  era moldura); no novo ocupam a altura toda. Por isso `MARK_H.NSCO` caiu de
+  **21 para 15** e `MARK_H2.NSCO` de **23 para 16** — a 21px o nSco. ficava
+  visivelmente maior que CIDADE e nSeventos ao lado. A 15px ele mede 50px de
+  largura contra 49px do CIDADE, e o peso ótico bate.
+
+A conferência é visual e tem de ser feita nos três lugares onde a marca
+aparece: o pill da gaveta de casas (`MARK_H`), o cabeçalho de seção
+(`MARK_H2`) e o painel "Por casa" do dashboard (altura fixa 13 para as três).
 
 ---
 
