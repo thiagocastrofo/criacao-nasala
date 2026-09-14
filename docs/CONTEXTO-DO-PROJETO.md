@@ -608,6 +608,41 @@ A conferência é visual e tem de ser feita nos três lugares onde a marca
 aparece: o pill da gaveta de casas (`MARK_H`), o cabeçalho de seção
 (`MARK_H2`) e o painel "Por casa" do dashboard (altura fixa 13 para as três).
 
+### Barreira de acesso: cadastrar ≠ entrar (set/2026)
+
+Cada conta tem `status`: `ativo`, `pendente` ou `recusado`. Cadastrar cria a
+conta como **pendente** — a pessoa cai numa sala de espera (`#waitScreen`), não
+no quadro. Um administrador libera em **Liberar acesso** (`#accessOverlay`, no
+menu da conta).
+
+Cinco decisões que não podem regredir:
+
+1. **Conta sem `status` conta como `ativo`.** São as que já existiam antes da
+   regra e já usavam o quadro. Trancar todo mundo para o Thiago reaprovar um a
+   um seria pior que o problema. Quem já está e não deveria, o administrador
+   suspende no mesmo painel.
+2. **Pendente não entra no `team`.** Antes o cadastro já criava a pessoa no
+   time; agora ela só entra quando é liberada. Senão apareceria nos filtros e
+   na carga do dashboard sem ter acesso ao quadro.
+3. **O contador é parte da funcionalidade, não enfeite.** O modo de falha aqui
+   é o pedido ficar parado sem ninguém ver, deixando a pessoa trancada do lado
+   de fora. Por isso `updateAccessBadge()` marca o item do menu *e* põe um
+   ponto no `#btnAccount`, que está sempre visível.
+4. **A liberação viaja pelo Firebase.** `syncUserFromStore()` compara a
+   situação antiga com a nova: quem está esperando entra sozinho quando é
+   liberado, e quem é suspenso enquanto usa o quadro é mandado para fora na
+   hora.
+5. **Administrador não mexe no próprio acesso** (`setUserStatus` recusa quando
+   `uid === session.uid`) — senão dá para se trancar para fora.
+
+**O que isto é e o que não é.** É um portão de processo: organiza quem entra e
+impede que qualquer pessoa que descubra o link se cadastre e comece a mexer.
+**Não é uma barreira de dados.** As regras do Realtime Database continuam
+abertas, então quem está pendente já baixou as demandas para o navegador antes
+de ver a sala de espera — a tela esconde, não impede. Quem abrir o devtools lê
+tudo e pode trocar o próprio `status` para `ativo`. Fechar de verdade continua
+sendo Firebase Auth + regras, com a receita no README.
+
 ---
 
 ## Hospedagem (decidido em set/2026)

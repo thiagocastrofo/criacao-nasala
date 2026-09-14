@@ -7,6 +7,21 @@ const page = await ctx.newPage();
 const errs = [];
 page.on('pageerror', e => errs.push('pageerror: ' + e.message));
 page.on('console', m => { if (m.type()==='error' && !/gstatic|firebase|net::|Failed to load/i.test(m.text())) errs.push('console: '+m.text()); });
+// Cadastrar não dá mais acesso: a conta nasce pendente. Para seguir testando o
+// que esta suíte testa de verdade — o que um não-admin pode —, o admin precisa
+// liberar a conta antes.
+async function liberarComoAdmin(page, mail) {
+  await page.evaluate(() => window.signOut()); await page.waitForTimeout(500);
+  await page.fill('#authEmail','thiago@nasala.com.br'); await page.fill('#authPass','Thiago@290692');
+  await page.click('#authSubmit'); await page.waitForTimeout(2200);
+  await page.locator('#btnAccount').click(); await page.waitForTimeout(250);
+  await page.locator('#btnAccess').click(); await page.waitForTimeout(600);
+  await page.locator('.acc-row').filter({hasText: mail}).getByText('Liberar').click();
+  await page.waitForTimeout(700);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  await page.evaluate(() => window.signOut()); await page.waitForTimeout(500);
+}
+
 const ok = []; const check = (n,c,x='') => ok.push(`${c?'ok  ':'FAIL'} ${n}${x?' — '+x:''}`);
 
 await page.goto(`${BASE}/index.html`); await page.waitForTimeout(900);
@@ -66,7 +81,14 @@ await page.fill('#authEmail','gabs@nasala.com.br');
 await page.fill('#authPass','SenhaForte123');
 await page.fill('#authPass2','SenhaForte123');
 await page.click('#authSubmit'); await page.waitForTimeout(2200);
-check('cadastro entra direto', !(await page.locator('#appShell').isHidden()));
+check('cadastro NÃO entra no quadro', await page.locator('#appShell').isHidden());
+check('cadastro cai na sala de espera', await page.locator('#waitScreen').isVisible());
+
+await liberarComoAdmin(page, 'gabs@nasala.com.br');
+await page.fill('#authEmail','gabs@nasala.com.br'); await page.fill('#authPass','SenhaForte123');
+await page.click('#authSubmit'); await page.waitForTimeout(2300);
+check('depois de liberado, entra', !(await page.locator('#appShell').isHidden()));
+
 await page.locator('#dockResp').click().catch(()=>{}); await page.waitForTimeout(200);
 await page.locator('#respPills button:has-text("Gabs")').click(); await page.waitForTimeout(500);
 const mine = await page.locator('.card .act').count() / 2, mineLocks = await page.locator('.act-lock').count();

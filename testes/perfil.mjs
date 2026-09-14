@@ -6,6 +6,21 @@ const ctx = await b.newContext({ colorScheme:'dark', viewport:{width:1280,height
 const page = await ctx.newPage();
 const errs=[]; page.on('pageerror',e=>errs.push(e.message));
 page.on('console',m=>{if(m.type()==='error'&&!/gstatic|firebase|net::/i.test(m.text()))errs.push(m.text())});
+// Cadastrar não dá mais acesso: a conta nasce pendente. Para seguir testando o
+// que esta suíte testa de verdade — o que um não-admin pode —, o admin precisa
+// liberar a conta antes.
+async function liberarComoAdmin(page, mail) {
+  await page.evaluate(() => window.signOut()); await page.waitForTimeout(500);
+  await page.fill('#authEmail','thiago@nasala.com.br'); await page.fill('#authPass','Thiago@290692');
+  await page.click('#authSubmit'); await page.waitForTimeout(2200);
+  await page.locator('#btnAccount').click(); await page.waitForTimeout(250);
+  await page.locator('#btnAccess').click(); await page.waitForTimeout(600);
+  await page.locator('.acc-row').filter({hasText: mail}).getByText('Liberar').click();
+  await page.waitForTimeout(700);
+  await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+  await page.evaluate(() => window.signOut()); await page.waitForTimeout(500);
+}
+
 const ok=[]; const check=(n,c,x='')=>ok.push(`${c?'ok  ':'FAIL'} ${n}${x?' — '+x:''}`);
 const login=async(e,p)=>{await page.fill('#authEmail',e);await page.fill('#authPass',p);await page.click('#authSubmit');await page.waitForTimeout(2300)};
 
@@ -60,6 +75,11 @@ await page.click('#authSwitchBtn');
 await page.fill('#authName','Gabs'); await page.fill('#authEmail','gabs@nasala.com.br');
 await page.fill('#authPass','SenhaForte123'); await page.fill('#authPass2','SenhaForte123');
 await page.click('#authSubmit'); await page.waitForTimeout(2300);
+check('cadastro fica esperando liberação', await page.locator('#waitScreen').isVisible());
+await liberarComoAdmin(page, 'gabs@nasala.com.br');
+await page.fill('#authEmail','gabs@nasala.com.br'); await page.fill('#authPass','SenhaForte123');
+await page.click('#authSubmit'); await page.waitForTimeout(2300);
+
 await page.locator('#btnAccount').click(); await page.waitForTimeout(250);
 check('não-admin NÃO vê Perfis do time', await page.locator('#moreMenu button:has-text("Perfis do time"):visible').count() === 0);
 check('não-admin vê Meu perfil', await page.locator('#moreMenu button:has-text("Meu perfil"):visible').count() === 1);

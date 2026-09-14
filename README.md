@@ -118,20 +118,34 @@ produção e funciona só no `localhost`.
 | Quem | O que pode |
 |---|---|
 | Visitante sem conta | Nada: só a tela de entrada |
+| Conta recém-criada | Nada ainda: fica esperando um administrador liberar |
 | Pessoa com conta | Vê tudo; edita as demandas em que é responsável |
 | Administrador | Edita todas as demandas, o time e os perfis; define quem mais é administrador |
 
-Conta inicial: `thiago@nasala.com.br`. Administradores podem **ocultar** um
-perfil sem apagar nada — a pessoa some dos filtros, do seletor de responsáveis e
-da carga do dashboard, mas as demandas dela continuam na lista.
+Conta inicial: `thiago@nasala.com.br`.
+
+**Criar conta não dá acesso.** Quem se cadastra fica numa sala de espera até um
+administrador liberar em *menu da conta → Liberar acesso*, onde também dá para
+recusar um pedido ou suspender quem já tinha entrado. O botão da conta ganha um
+ponto quando há pedido esperando. Contas que já existiam antes desta regra
+seguem valendo — a barreira vale para quem se cadastrar daqui em diante.
+
+Administradores também podem **ocultar** um perfil sem apagar nada: a pessoa
+some dos filtros, do seletor de responsáveis e da carga do dashboard, mas as
+demandas dela continuam na lista.
 
 ### ⚠ O que esta tela protege — e o que não protege
 
 A conferência da senha acontece **no navegador**, contra a lista de usuários
-guardada no próprio banco. Isso organiza o time e evita engano no dia a dia.
-**Não é segurança.** Com as regras do Realtime Database abertas, quem tiver o
-link e abrir o console do navegador lê e altera tudo sem passar pela tela de
-entrada.
+guardada no próprio banco. Junto com a aprovação por administrador, isso
+organiza quem entra e evita engano no dia a dia. **Não é segurança.**
+
+As regras do Realtime Database continuam abertas, então quem tiver o link e
+abrir o console do navegador lê e altera tudo sem passar pela tela de entrada.
+A aprovação é um portão de processo, não uma barreira de dados: quem está
+esperando liberação já baixou as demandas para o navegador antes de ver a sala
+de espera — a tela esconde, não impede — e pode trocar o próprio estado pelo
+console.
 
 Repositório privado protege o código-fonte no GitHub, **não** o site: o `app.js`
 publicado carrega os mesmos dados. O `robots.txt` e o header `X-Robots-Tag`

@@ -999,7 +999,9 @@ async function load() {
 
   document.getElementById('titleDisplay').textContent = appTitle;
   applyTheme();
-  if (restoreSession()) enterApp(); else renderAuth();
+  if (!restoreSession()) renderAuth();
+  else if (liberado(session)) enterApp();
+  else renderWait();
 
   try {
     await initFirebase();
@@ -1016,7 +1018,9 @@ function refreshOpenPanels() {
   if (aberto('dashOverlay'))     renderDashboard();
   if (aberto('meOverlay'))       renderMe();
   if (aberto('teamOverlay'))     renderTeamList();
+  if (aberto('accessOverlay'))   renderAccess();
   renderUserChip();
+  updateAccessBadge();
 }
 
 const normalizeTask   = t => ({...t, responsible: Array.isArray(t.responsible) ? t.responsible : [t.responsible].filter(Boolean)});
@@ -1179,9 +1183,23 @@ const SEED_USER = {
   admin:      true,
   memberName: 'Thiago',
   createdAt:  '2026-09-12T00:00:00.000Z',
+  status:     'ativo',
 };
 
-let users   = {};      // { uid: {name, email, salt, hash, admin, memberName, createdAt} }
+/**
+ * Situação de uma conta. Cadastrar não dá acesso: a conta nasce `pendente` e
+ * só vê as demandas depois que um administrador libera.
+ *
+ * Conta sem o campo conta como `ativo` — são as que já existiam antes desta
+ * regra, e que já vinham usando o quadro. Trancar todo mundo de uma vez para
+ * o Thiago reaprovar pessoa por pessoa seria pior do que o problema. Quem já
+ * está e não deveria estar, o administrador suspende em "Liberar acesso".
+ */
+const ATIVO = 'ativo', PENDENTE = 'pendente', RECUSADO = 'recusado';
+const statusDe = u => (u && u.status) || ATIVO;
+const liberado = u => statusDe(u) === ATIVO;
+
+let users   = {};      // { uid: {name, email, salt, hash, admin, memberName, createdAt, status} }
 let session = null;    // usuário logado (sem salt nem hash)
 
 const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -1213,7 +1231,8 @@ function userByEmail(email) {
   const e = normEmail(email);
   return Object.values(allUsers()).find(u => normEmail(u.email) === e) || null;
 }
-const publicUser = u => u && ({uid:u.uid, name:u.name, email:u.email, admin:!!u.admin, memberName:u.memberName || u.name});
+const publicUser = u => u && ({uid:u.uid, name:u.name, email:u.email, admin:!!u.admin,
+                              memberName:u.memberName || u.name, status: statusDe(u)});
 
 // ── permissões ───────────────────────────────────────
 const isAdmin = () => !!(session && session.admin);
@@ -1252,10 +1271,27 @@ function syncUserFromStore() {
   if (!session) return;
   const u = allUsers()[session.uid] || userByEmail(session.email);
   if (!u) { signOut(); return; }          // conta removida por um administrador
-  const was = session.admin;
+  const eraAdmin = session.admin;
+  const eraLiberado = liberado(session);
   session = publicUser(u);
+
+  // A liberação chega pelo Firebase: quem está na sala de espera entra sozinho,
+  // e quem for suspenso enquanto usa o quadro é mandado para fora na hora.
+  if (!eraLiberado && liberado(session)) {
+    toast('Acesso liberado. Bem-vindo!', {tone: 'ok', ms: 4000});
+    enterApp();
+    return;
+  }
+  if (eraLiberado && !liberado(session)) {
+    const espera = statusDe(u) === PENDENTE;
+    if (espera) { renderWait(); }
+    else { signOut(); authError('Seu acesso foi suspenso. Fale com um administrador.'); }
+    return;
+  }
+  if (!liberado(session)) { renderWait(); return; }
+
   applyRole();
-  if (was !== session.admin) { renderUserChip(); render(); }
+  if (eraAdmin !== session.admin) { renderUserChip(); render(); }
 }
 
 async function doLogin(email, password) {
@@ -1263,9 +1299,13 @@ async function doLogin(email, password) {
   // Deriva mesmo sem usuário, para a resposta demorar igual nos dois casos.
   const hash = await derive(password, u ? u.salt : newSalt());
   if (!u || !sameHash(hash, u.hash)) return {error: 'E-mail ou senha não conferem.'};
+  if (statusDe(u) === RECUSADO) {
+    return {error: 'Este acesso não foi liberado. Fale com um administrador.'};
+  }
   session = publicUser(u);
   saveSession();
-  return {ok: true};
+  // Senha certa, mas ainda sem liberação: entra na sala de espera, não no quadro.
+  return liberado(u) ? {ok: true} : {esperando: true};
 }
 
 async function doSignup({name, email, password}) {
@@ -1280,35 +1320,139 @@ async function doSignup({name, email, password}) {
   const uid  = 'u-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
   // Liga a conta a quem já está no time, se o nome bater. Senão entra como
   // pessoa nova — um administrador pode reapontar depois, em Perfis.
+  // Liga a conta a quem já está no time, se o nome bater. Quem é gente nova
+  // NÃO entra no `team` agora: entraria nos filtros e na carga do dashboard
+  // antes de ter acesso. Entra na hora em que o administrador liberar.
   const match = team.find(m => m.name.toLowerCase() === name.toLowerCase());
-  if (!match) {
-    team = [...team, {name, color: PALETTE[team.length % PALETTE.length], svg:null, startDate:'', role:''}];
-  }
   users = {...allUsers(), [uid]: {
     uid, name, email, salt,
     hash: await derive(password, salt),
     admin: false,
     memberName: match ? match.name : name,
     createdAt: new Date().toISOString(),
+    status: PENDENTE,
   }};
   session = publicUser(users[uid]);
   saveSession();
-  if (!match) saveTeam2();
   saveUsers();
-  addLog('team', `${name} criou uma conta`);
+  addLog('team', `${name} pediu acesso`);
   saveLog();
-  return {ok: true};
+  return {esperando: true};
 }
 
 function signOut() {
   session = null;
   saveSession();
   closeMe();
+  document.getElementById('waitScreen').hidden = true;
   authMode = 'login';
   renderAuth();
   const mail = document.getElementById('authEmail');
   if (mail) mail.value = '';   // porta limpa para a próxima pessoa
 }
+
+// ═══════════════════════════════════════════════════
+//  LIBERAR ACESSO
+// ═══════════════════════════════════════════════════
+const pendentes = () => Object.values(allUsers())
+  .filter(u => statusDe(u) === PENDENTE)
+  .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+
+/** Contador no menu: sem isso o pedido fica esperando sem ninguém ver. */
+function updateAccessBadge() {
+  const el = document.getElementById('accessCount');
+  if (!el) return;
+  const n = isAdmin() ? pendentes().length : 0;
+  el.textContent = n;
+  el.hidden = !n;
+  document.getElementById('btnAccount')?.classList.toggle('has-badge', !!n);
+}
+
+function openAccess() {
+  if (!isAdmin()) return denied('Só administradores liberam acesso.');
+  renderAccess();
+  openOverlay('accessOverlay');
+}
+function closeAccess() { closeOverlay('accessOverlay'); }
+
+function fichaAcesso(u, acoes) {
+  const m = memberOf(u.memberName || u.name);
+  const dia = u.createdAt ? fmtDate(String(u.createdAt).slice(0, 10)) : '';
+  // "pediu em" só vale para quem está na fila; quem já tem conta não pediu nada.
+  const quando = !dia ? '' : statusDe(u) === PENDENTE ? `pediu em ${dia}` : `conta de ${dia}`;
+  return `<div class="acc-row">
+    <span class="av" style="width:34px;height:34px;font-size:12px;background:${attr(m.color || '#8E8E93')};color:${inkOn(m.color || '#8E8E93')};border-color:transparent" aria-hidden="true">${esc(avInits(u.name))}</span>
+    <div class="acc-id">
+      <strong>${esc(u.name)}</strong>
+      <span>${esc(u.email)}${quando ? ` · ${quando}` : ''}</span>
+    </div>
+    <div class="acc-acts">${acoes}</div>
+  </div>`;
+}
+
+function renderAccess() {
+  const body = document.getElementById('accessBody');
+  if (!body) return;
+  const todos = Object.values(allUsers());
+  const espera = pendentes();
+  const ativos = todos.filter(u => statusDe(u) === ATIVO)
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const fora = todos.filter(u => statusDe(u) === RECUSADO)
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+
+  const bloco = (titulo, sub, itens) => itens
+    ? `<section class="acc-sec"><h3>${titulo}</h3>${sub ? `<p class="acc-sub">${sub}</p>` : ''}${itens}</section>`
+    : '';
+
+  body.innerHTML =
+    bloco(`Esperando liberação${espera.length ? ` · ${espera.length}` : ''}`, '',
+      espera.length
+        ? espera.map(u => fichaAcesso(u,
+            `<button type="button" class="btn btn-primary btn-sm" onclick="approveUser('${attr(u.uid)}')">Liberar</button>
+             <button type="button" class="btn btn-sm" onclick="rejectUser('${attr(u.uid)}')">Recusar</button>`)).join('')
+        : `<p class="acc-vazio">Ninguém esperando.</p>`) +
+
+    bloco(`Com acesso · ${ativos.length}`, '',
+      ativos.map(u => fichaAcesso(u,
+        u.uid === session.uid
+          ? `<span class="acc-tag">você</span>`
+          : `${u.admin ? `<span class="acc-tag is-admin">admin</span>` : ''}
+             <button type="button" class="btn btn-sm" onclick="suspendUser('${attr(u.uid)}')">Suspender</button>`)).join('')) +
+
+    bloco('Sem acesso', 'Podem ser liberados a qualquer momento.',
+      fora.map(u => fichaAcesso(u,
+        `<button type="button" class="btn btn-sm" onclick="approveUser('${attr(u.uid)}')">Liberar</button>`)).join(''));
+}
+
+/** Troca a situação de uma conta e mantém time, filtros e contador em dia. */
+function setUserStatus(uid, status, verbo) {
+  if (!isAdmin()) return denied('Só administradores liberam acesso.');
+  const map = allUsers();
+  const u = map[uid];
+  if (!u) return;
+  if (uid === session.uid) return denied('Você não pode mexer no próprio acesso.');
+
+  users = {...map, [uid]: {...u, status}};
+
+  // Só entra no time quando é liberado — antes disso apareceria nos filtros
+  // e na carga do dashboard sem ter acesso ao quadro.
+  if (status === ATIVO) {
+    const nome = u.memberName || u.name;
+    if (!team.some(m => m.name === nome)) {
+      team = [...team, {name: nome, color: PALETTE[team.length % PALETTE.length], svg: null, startDate: '', role: ''}];
+      saveTeam2();
+    }
+  }
+
+  addLog('team', `${u.name} ${verbo}`);
+  saveUsers(); saveLog();
+  renderAccess(); updateAccessBadge(); buildFilters(); render();
+  toast(`${u.name.split(' ')[0]} ${verbo}.`, {ms: 3000});
+}
+
+const approveUser = uid => setUserStatus(uid, ATIVO,    'teve o acesso liberado');
+const rejectUser  = uid => setUserStatus(uid, RECUSADO, 'teve o acesso recusado');
+const suspendUser = uid => setUserStatus(uid, RECUSADO, 'teve o acesso suspenso');
 
 /** Administrador promove, rebaixa ou remove contas (na tela de Perfis). */
 function setUserAdmin(uid, value) {
@@ -1448,13 +1592,44 @@ function renderAuth() {
   }
   setTimeout(() => document.getElementById('authEmail')?.focus(), 40);
 }
+/** Sala de espera: senha certa, liberação pendente. */
+function renderWait() {
+  document.documentElement.classList.remove('is-admin');
+  document.getElementById('authScreen').hidden = true;
+  document.getElementById('appShell').hidden   = true;
+  const tela = document.getElementById('waitScreen');
+  tela.hidden = false;
+
+  const u = session || {};
+  const m = memberOf(u.memberName || u.name);
+  const av = document.getElementById('waitAv');
+  av.textContent = avInits(u.name);
+  av.style.background = m.color || '#8E8E93';
+  av.style.color = inkOn(m.color || '#8E8E93');
+
+  document.getElementById('waitName').textContent = u.name || '';
+  document.getElementById('waitMail').textContent = u.email || '';
+  document.getElementById('waitIcon').innerHTML =
+    `<svg width="22" height="22" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+       <path d="M3.4 6.1V4.3a3.1 3.1 0 0 1 6.2 0v1.8" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/>
+       <rect x="2.1" y="6.1" width="8.8" height="5.4" rx="1.7" stroke="currentColor" stroke-width="1.24"/>
+     </svg>`;
+  document.getElementById('waitSub').textContent =
+    'Sua conta foi criada. Um administrador precisa liberar o acesso antes de você ver as demandas.';
+  document.getElementById('waitNote').textContent = isFirebaseConfigured()
+    ? 'Pode deixar esta tela aberta: assim que alguém liberar, o quadro abre sozinho.'
+    : 'Avise um administrador e entre de novo depois que ele liberar.';
+}
+
 function enterApp() {
   document.getElementById('authScreen').hidden = true;
+  document.getElementById('waitScreen').hidden = true;
   document.getElementById('appShell').hidden = false;
   authError('');
   document.getElementById('authPass').value = '';
   document.getElementById('authPass2').value = '';
   renderUserChip();
+  updateAccessBadge();
   applyHideIcon();
   buildFilters();
   render();
@@ -1507,6 +1682,7 @@ async function submitAuth(event) {
       else res = await doSignup({name, email, password: pass});
     }
     if (res.error) { authError(res.error); document.getElementById('authPass').focus(); return; }
+    if (res.esperando) { renderWait(); return; }
     enterApp();
   } catch (e) {
     console.error(e);
@@ -2946,6 +3122,7 @@ Object.assign(window, {
   setAvColor, removeAvSvg, handleSvg, saveAv,
   // perfis, carga, log, tutorial, setup
   openProfiles, closeProfiles, renderProfiles,
+  openAccess, closeAccess, renderAccess, approveUser, rejectUser, suspendUser,
   openMe, closeMe, renderMe, deleteMyAccount,
   setMemberField, setStartDate, commitTeam, toggleMemberHidden,
   openDashboard, closeDashboard, renderDashboard, setDashAno,

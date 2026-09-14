@@ -15,7 +15,7 @@ const exec = promisify(execFile);
 const aqui = fileURLToPath(new URL('.', import.meta.url));
 
 const SUITES = ['test', 'auth', 'remodel', 'perfil', 'painel',
-                'v8', 'v9', 'v10', 'v11', 'v12'];
+                'v8', 'v9', 'v10', 'v11', 'v12', 'v13'];
 const EXTRAS = ['contrast', 'pior-caso'];
 
 const hs = await headersDoRender();
