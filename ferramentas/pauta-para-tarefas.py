@@ -132,7 +132,12 @@ def limpa_titulo(bruto):
     t = bruto.strip()
     t = re.sub(r'\s*\*[^*]*\*\s*$', '', t)          # *Cancelado*, *Contínuo*
     while True:
-        m = re.search(r'\s*\(([^()]*)\)\s*\*?\s*$', t)
+        # Pega o ÚLTIMO parêntese e o que vier depois dele. Três linhas da pauta
+        # põem uma anotação no fim ("(Vitão) alteração", "(Vitão) * Alterações"):
+        # o rabo é anotação, não nome da demanda, e sai junto.
+        m = None
+        for m in re.finditer(r'\(([^()]*)\)\s*\*?\s*[^()]{0,24}$', t):
+            pass
         if not m:
             break
         dentro = m.group(1)

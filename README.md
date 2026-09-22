@@ -113,13 +113,14 @@ ordem que a pauta tem.
 
 ## Sincronização em tempo real (Firebase)
 
-> ⚠ **Hoje a sincronização está fora do ar.** O banco `ns-criacao` devolve
-> `401 Permission denied` em todos os caminhos — as regras não estão mais
-> abertas, provavelmente porque o modo de teste do Firebase expirou (ele dura
-> 30 dias). Enquanto isso, cada pessoa vê só a cópia do próprio navegador e as
-> edições não chegam a ninguém. Conserte em **Realtime Database → Regras**, no
-> console. Detalhes e a ordem certa de fazer isso estão no
-> `docs/CONTEXTO-DO-PROJETO.md`.
+> ⚠ **O banco está aberto para qualquer pessoa.** As regras em
+> `ns-criacao` são `".read": true, ".write": true`. A URL do banco está dentro
+> do `app.js`, que é público — então quem tiver o link do site consegue ler
+> tudo e **apagar tudo** com um comando. Isso foi deliberado, para o time
+> voltar a sincronizar, e é temporário: o fechamento de verdade é migrar para
+> Firebase Auth e trocar as regras por `"auth != null"` (ver
+> **Como fechar de verdade**, mais abaixo). Até lá, o `_backup` dentro do
+> próprio banco guarda a última cópia boa.
 
 Sem configuração, o app funciona, mas cada pessoa vê os dados do próprio
 navegador. Para o time inteiro ver e editar ao vivo, conecte um Realtime
@@ -173,12 +174,12 @@ A conferência da senha acontece **no navegador**, contra a lista de usuários
 guardada no próprio banco. Junto com a aprovação por administrador, isso
 organiza quem entra e evita engano no dia a dia. **Não é segurança.**
 
-O banco em si passou a negar acesso não autenticado (verificado em 22/09/2026:
-todo caminho devolve `401 Permission denied`, provavelmente porque o modo de
-teste do Firebase expirou). Isso **não** fecha o quadro, e tem um efeito
-colateral sério descrito na seção de sincronização: ninguém está sincronizando.
+O banco está com as regras abertas (`.read` e `.write` em `true`), e a URL dele
+está no `app.js` público — então qualquer pessoa com o link lê e escreve no
+banco inteiro, inclusive apagando. É o item mais urgente da lista.
 
-A exposição continua, por outra porta: a lista inteira de demandas é a semente
+A exposição também existe por outra porta, que continua mesmo se o banco for
+fechado: a lista inteira de demandas é a semente
 dentro do `assets/app.js`, que é servido publicamente. Quem abrir o link lê
 todas as demandas no código-fonte da página, com cliente e responsável, sem
 passar pela tela de entrada. Por isso a aprovação por administrador é um portão

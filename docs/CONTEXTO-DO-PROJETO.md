@@ -489,189 +489,45 @@ Comportamento da inicialização (`load()` → `initFirebase()`):
 > navegador) e não é um segredo — a segurança vem das **regras** do Realtime
 > Database. Ainda assim, vale conferir as regras antes de uso em produção.
 
-### ⚠ O banco está negando acesso (verificado em 22/09/2026)
+### Estado do banco (22/09/2026)
 
-Qualquer leitura em `https://ns-criacao-default-rtdb.firebaseio.com` devolve
-`401 Permission denied` — na raiz e em todos os caminhos. As regras não estão
-mais abertas. O sintoma típico é o modo de teste do Firebase, que expira depois
-de 30 dias e passa a negar tudo.
+Passei uma tarde achando que o modo de teste do Firebase tinha expirado: toda
+leitura devolvia `401 Permission denied`. **A hipótese estava errada** — as
+regras apareceram já abertas no console. Não sei qual era o estado anterior;
+sei que depois de publicar `.read`/`.write` em `true` o acesso voltou.
 
-**Consequência prática: ninguém está sincronizando.** Cada pessoa vê o que está
-no `localStorage` do próprio navegador, e as edições de uma não chegam às
-outras. O app não quebra — `load()` renderiza primeiro do cache local e depois
-tenta o Firebase — mas o indicador "Sem sincronização" aparece, e o quadro
-deixou de ser compartilhado.
+Fica o registro: `401 Permission denied` no Realtime Database diz só "a regra
+negou", não *por quê*. Só o console mostra a regra em vigor.
 
-**Isso também limita o que uma atualização de pauta alcança.** O `let tasks`
-do `app.js` é só a semente: quem já usou o quadro tem cópia local e o `load()`
-lê o `localStorage` **antes** do Firebase, então a semente nova não aparece
-para essa pessoa. Para a atualização chegar ao time:
+**O que foi feito com o banco nessa rodada:**
 
-1. Corrigir as regras no console do Firebase (Realtime Database → Regras).
-2. Garantir que o banco receba a lista nova — o que estiver lá vai sobrescrever
-   a semente assim que a sincronização voltar. Se o banco tiver a lista antiga,
-   ela volta por cima.
-3. Só então a semente e o banco contam a mesma história.
+- Backup completo antes de qualquer escrita, em duas cópias: local e dentro do
+  próprio banco, em `demandas/_backup/<carimbo>`, que sobrevive ao fim da
+  sessão.
+- O banco tinha 749 tarefas em **lista por posição** (schema 1), sem nó
+  `users`, e com `dark` e `collapsed` gravados — preferência de cada pessoa,
+  que hoje mora no navegador. Foi regravado como **mapa por id** (schema 2),
+  que é o formato que o app usa, e as duas preferências saíram.
+- 14 tarefas concluídas que só existiam no banco eram duplicatas da pauta
+  (mesma demanda com limpeza de título diferente) e saíram.
+- 5 tarefas **em aberto** só existiam no banco, criadas pelo time no app. Todas
+  foram mantidas, cada uma com um aviso na `description` dizendo de onde veio.
+  Três apontam a provável duplicata na pauta; as outras duas dizem o que são,
+  porque chamá-las de duplicata seria falso.
+- `team` (9 pessoas) e `log` preservados como estavam.
 
-Vale aproveitar a correção das regras para fechar de verdade (Firebase Auth +
-`auth != null`), em vez de reabrir para todo mundo — a receita está no README.
+Resultado: **846 demandas no banco** contra 841 na semente do `app.js`. A
+diferença são essas 5. Elas entram na semente sozinhas se forem acrescentadas
+ao texto da pauta; forçar a igualdade na mão quebraria a idempotência da
+ferramenta.
 
----
+### ⚠ O banco está aberto para qualquer pessoa
 
-## Detalhe técnico importante (já resolvido — não regredir)
-
-O `app.js` é carregado como `<script type="module">` (necessário para o
-`import()` dinâmico do Firebase). Em módulos, as funções de topo **não são
-globais**, então os `onclick="..."` inline do HTML não as enxergam.
-
-Por isso existe, **no final do `app.js`**, um bloco:
-
-```js
-Object.assign(window, { toggleHide, toggleTheme, openModal, setStatus, ... });
-```
-
-que expõe todas as ~40 funções usadas nos handlers inline.
-**Ao adicionar qualquer função nova chamada por `onclick`/`onchange`/`oninput`,
-ela precisa ser incluída nesse bloco**, senão o botão não funciona
-(erro típico no console: `X is not defined`).
-
-### Nada de diálogos do navegador (`confirm` / `alert` / `prompt`)
-
-O app roda dentro de um `<iframe sandbox>` na pré-visualização publicada.
-Sem `allow-modals`, o navegador **bloqueia** `confirm()` em silêncio e a
-chamada devolve `false`. Foi exatamente isso que fez o botão **Sair da conta**
-parecer quebrado por várias rodadas: o clique chegava, o `confirm()` voltava
-`false` e a função abortava sem erro no console.
-
-Regra: **zero** `confirm`/`alert`/`prompt` no `app.js`.
-
-- Confirmação → `await ask(titulo, msg, rotuloOk, perigo)`, o modal
-  `#askOverlay` da própria página (resolve via `askResolve(v)`).
-- Aviso → `toast(...)`.
-- Ação cujo resultado é o próprio clique (sair da conta) → executa direto,
-  sem perguntar. Só o que destrói dado (limpar histórico, apagar conta)
-  passa pelo `ask()`.
-
-### Contadores, gaveta e métricas (rodada 12 — não regredir)
-
-- **Ocultar entregues não zera o contador.** `renderState(scope)` calcula
-  sempre sobre o escopo *sem* `hideDone`; a ficha de entregues recebe
-  `.is-muted` (opacity .45) e `disabled` enquanto estiverem ocultas. O número
-  continua verdadeiro, só perde ênfase.
-- **`.dock-pop` é `width:max-content`** com teto
-  `min(480px, calc(100vw - 24px))`. Largura fixa deixava sobra vazia à
-  esquerda de "Outros" na gaveta de casas. O teto é que segura a gaveta de
-  time, que é larga e rola com as setas.
-- **"Carga por pessoa" some com filtro de ano** (2026/2025) — só aparece em
-  "Tudo". Com um ano selecionado o recorte fica sem entregas e o painel
-  virava nove barras zeradas, que se lê como defeito.
-- **Métrica "Ganhas" (concorrência ganha) foi removida** do "Meu perfil" e
-  dos "Perfis do time". Restam três: Abertas · Entregues · Total
-  (`.metrics` é `repeat(3,1fr)`).
-
-### Ocultar perfil ≠ remover do time (rodada 13)
-
-Cada pessoa do `team` tem um campo `hidden`. Só administrador mexe nele, por
-dois caminhos: o botão de olho no cartão de "Perfis do time"
-(`toggleMemberHidden(i)`, salva na hora) e o botão de olho ao lado do de
-remover no editor de time (`toggleDraftHidden(i)`, entra junto com o "Salvar").
-
-**Ocultar nunca apaga nada.** A regra de ouro é que `memberOf()` continua
-enxergando o time inteiro, então as demandas de quem está oculto seguem na
-lista com nome, cor e avatar de sempre. O que muda é só onde se *escolhe*
-gente — e esses três lugares usam `teamVisivel()`:
-
-| Lugar | Função |
-|---|---|
-| Pills de pessoa na gaveta flutuante | `buildFilters()` → `#respPills` |
-| "Carga por pessoa" do dashboard | `loadPanelHTML()` |
-| Seletor de responsáveis | `renderMulti()` → `#multiDrop` |
-
-Duas exceções de segurança que não podem regredir:
-
-- O seletor de responsáveis mostra quem está oculto **se a pessoa já é
-  responsável por aquela demanda** (`!m.hidden || selectedResp.includes(...)`).
-  Sem isso, editar uma demanda antiga apagaria a responsável em silêncio.
-- Ao ocultar alguém que está no filtro ativo, `fResp` volta para `'TIME'`
-  (em `toggleMemberHidden` e em `saveTeam`), senão o filtro trava num nome
-  que não tem mais pill para desmarcar.
-
-O cabeçalho do cartão foi remontado para caber o botão: a etiqueta
-(`admin` / `conta` / `sem conta` / `oculto`) desceu para a segunda linha, ao
-lado do campo de cargo (`.profile-sub`). Sem isso o nome ficava com ~40px e
-"Marcela" e "Marcelo" viravam os dois "Mar…". Com a mudança o nome pega a
-largura inteira (127px na coluna de 268px) e nenhum nome do time é cortado.
-
-Na grade de perfis os ocultos vão para o fim (a ordenação guarda o índice
-original de `team`, que é por onde os campos editáveis escrevem), com borda
-tracejada e etiqueta laranja "oculto". O cartão continua inteiro e editável —
-é ele que traz a pessoa de volta.
-
-### Letreiro da nSco. (trocado em set/2026)
-
-Veio de um `.ai` da agência, que é PDF por dentro. Sem Inkscape nem poppler,
-o caminho foi PyMuPDF: `get_drawings()` devolve os itens já em coordenadas de
-página com y para baixo — a mesma orientação do SVG — então dá para achatar
-tudo num `d` só, sem `transform` por forma, que é o que deixa a marca pequena
-e legível dentro do `app.js`.
-
-A conversão está em **`ferramentas/ai-para-svg.py`**, para quando o letreiro da
-cidade ou do eventos mudar:
-
-```bash
-pip install pymupdf
-python3 ferramentas/ai-para-svg.py logo.ai
-```
-
-O letreiro novo **não tem moldura**; o antigo era condensado dentro de um
-retângulo de fio. Isso muda duas coisas:
-
-- **Proporção**: 1,42 de largura/altura virou 3,32. Na mesma altura, a marca
-  passa de 30px para 70px de largura.
-- **Altura ótica**: no letreiro antigo as letras ocupavam 70% da caixa (o resto
-  era moldura); no novo ocupam a altura toda. Por isso `MARK_H.NSCO` caiu de
-  **21 para 15** e `MARK_H2.NSCO` de **23 para 16** — a 21px o nSco. ficava
-  visivelmente maior que CIDADE e nSeventos ao lado. A 15px ele mede 50px de
-  largura contra 49px do CIDADE, e o peso ótico bate.
-
-A conferência é visual e tem de ser feita nos três lugares onde a marca
-aparece: o pill da gaveta de casas (`MARK_H`), o cabeçalho de seção
-(`MARK_H2`) e o painel "Por casa" do dashboard (altura fixa 13 para as três).
-
-### Barreira de acesso: cadastrar ≠ entrar (set/2026)
-
-Cada conta tem `status`: `ativo`, `pendente` ou `recusado`. Cadastrar cria a
-conta como **pendente** — a pessoa cai numa sala de espera (`#waitScreen`), não
-no quadro. Um administrador libera em **Liberar acesso** (`#accessOverlay`, no
-menu da conta).
-
-Cinco decisões que não podem regredir:
-
-1. **Conta sem `status` conta como `ativo`.** São as que já existiam antes da
-   regra e já usavam o quadro. Trancar todo mundo para o Thiago reaprovar um a
-   um seria pior que o problema. Quem já está e não deveria, o administrador
-   suspende no mesmo painel.
-2. **Pendente não entra no `team`.** Antes o cadastro já criava a pessoa no
-   time; agora ela só entra quando é liberada. Senão apareceria nos filtros e
-   na carga do dashboard sem ter acesso ao quadro.
-3. **O contador é parte da funcionalidade, não enfeite.** O modo de falha aqui
-   é o pedido ficar parado sem ninguém ver, deixando a pessoa trancada do lado
-   de fora. Por isso `updateAccessBadge()` marca o item do menu *e* põe um
-   ponto no `#btnAccount`, que está sempre visível.
-4. **A liberação viaja pelo Firebase.** `syncUserFromStore()` compara a
-   situação antiga com a nova: quem está esperando entra sozinho quando é
-   liberado, e quem é suspenso enquanto usa o quadro é mandado para fora na
-   hora.
-5. **Administrador não mexe no próprio acesso** (`setUserStatus` recusa quando
-   `uid === session.uid`) — senão dá para se trancar para fora.
-
-**O que isto é e o que não é.** É um portão de processo: organiza quem entra e
-impede que qualquer pessoa que descubra o link se cadastre e comece a mexer.
-**Não é uma barreira de dados.** As regras do Realtime Database continuam
-abertas, então quem está pendente já baixou as demandas para o navegador antes
-de ver a sala de espera — a tela esconde, não impede. Quem abrir o devtools lê
-tudo e pode trocar o próprio `status` para `ativo`. Fechar de verdade continua
-sendo Firebase Auth + regras, com a receita no README.
+As regras são `.read: true` e `.write: true`, e a URL está no `app.js` público.
+Quem tiver o link do site lê tudo e **apaga tudo** com um comando. Foi uma
+escolha consciente para destravar o time, e é temporária — o fechamento de
+verdade é Firebase Auth com `auth != null`, receita no README. Enquanto não
+for feito, o `_backup` no próprio banco é a rede de proteção.
 
 ---
 
