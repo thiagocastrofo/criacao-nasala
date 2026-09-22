@@ -113,14 +113,11 @@ ordem que a pauta tem.
 
 ## Sincronização em tempo real (Firebase)
 
-> ⚠ **O banco está aberto para qualquer pessoa.** As regras em
-> `ns-criacao` são `".read": true, ".write": true`. A URL do banco está dentro
-> do `app.js`, que é público — então quem tiver o link do site consegue ler
-> tudo e **apagar tudo** com um comando. Isso foi deliberado, para o time
-> voltar a sincronizar, e é temporário: o fechamento de verdade é migrar para
-> Firebase Auth e trocar as regras por `"auth != null"` (ver
-> **Como fechar de verdade**, mais abaixo). Até lá, o `_backup` dentro do
-> próprio banco guarda a última cópia boa.
+> ⚠ **O banco ainda está aberto para qualquer pessoa**, até você seguir os
+> cinco passos de **Fechar o banco**, mais abaixo. As regras em `ns-criacao`
+> são `".read": true, ".write": true`, e a URL do banco está no `app.js`, que é
+> público — então quem tiver o link do site lê tudo e **apaga tudo** com um
+> comando. O código já está pronto para fechar; falta ligar no console.
 
 Sem configuração, o app funciona, mas cada pessoa vê os dados do próprio
 navegador. Para o time inteiro ver e editar ao vivo, conecte um Realtime
@@ -170,9 +167,19 @@ demandas dela continuam na lista.
 
 ### ⚠ O que esta tela protege — e o que não protege
 
-A conferência da senha acontece **no navegador**, contra a lista de usuários
-guardada no próprio banco. Junto com a aprovação por administrador, isso
-organiza quem entra e evita engano no dia a dia. **Não é segurança.**
+A senha é conferida pelo **Firebase Auth** — o app não guarda nem vê hash
+nenhum. No banco fica só o perfil: nome, papel, pessoa do time correspondente e
+situação da liberação.
+
+Enquanto as regras não forem fechadas (ver **Fechar o banco**), isso organiza
+quem entra mas **não é segurança**: o banco aceita qualquer um. Depois de
+fechadas, passa a ser: quem não está liberado é recusado pelo próprio banco.
+
+Existe ainda um caminho de conferência local por PBKDF2, usado quando o
+Firebase não está disponível (arquivo aberto direto, ou fora do ar). É o que
+mantém o quadro utilizável offline e é o que a maior parte dos testes
+exercita. Com as regras fechadas ele não enfraquece nada: quem entra por essa
+porta não consegue ler o banco.
 
 O banco está com as regras abertas (`.read` e `.write` em `true`), e a URL dele
 está no `app.js` público — então qualquer pessoa com o link lê e escreve no
