@@ -36,10 +36,15 @@ check('busca', found > 0 && found < 60, `${found} resultados`);
 await page.locator('#srch').fill('');
 await page.waitForTimeout(300);
 
-// ocultar entregues
+// ocultar entregues — o esperado sai dos próprios dados, não de um número
+// fixo, senão a suíte quebra toda vez que a pauta é atualizada.
+const abertasEsperadas = await page.evaluate(() =>
+  window.__tasks ? 0 : document.querySelectorAll('.card:not(.is-done)').length);
 await page.locator('#btnHide').click();
 await page.waitForTimeout(250);
-check('ocultar entregues', (await page.locator('.card').count()) === 12, `${await page.locator('.card').count()} abertas`);
+const sobraram = await page.locator('.card').count();
+check('ocultar entregues', sobraram === abertasEsperadas && sobraram > 0,
+      `${sobraram} abertas (esperado ${abertasEsperadas})`);
 check('aria-pressed', await page.locator('#btnHide').getAttribute('aria-pressed') === 'true');
 await page.locator('#btnHide').click();
 await page.waitForTimeout(250);

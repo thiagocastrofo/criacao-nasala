@@ -7,6 +7,7 @@ puros, sem build e sem dependência para instalar. Dá para abrir o
 ```
 criacao-nasala/
 ├── render.yaml         ← configuração do site no Render (headers inclusive)
+├── ferramentas/        ← conversores de uma vez (pauta → demandas, .ai → SVG)
 ├── site/               ← O ÚNICO diretório que vai ao ar
 │   ├── index.html      ← página principal
 │   ├── robots.txt
@@ -86,7 +87,39 @@ navegador: ela pega a armadilha nº 1 do projeto, descrita no
 
 ---
 
+## Atualizar a pauta
+
+A lista de demandas mora no `site/assets/app.js`. Para atualizar a partir do
+texto da pauta (aquele com `- [x]` agrupado em EQUIPE, CIDADE, EVENTOS…):
+
+```bash
+python3 ferramentas/pauta-para-tarefas.py pauta.txt            # só o relatório
+python3 ferramentas/pauta-para-tarefas.py pauta.txt --aplicar  # escreve
+node testes/executar.mjs
+```
+
+O relatório sai antes de escrever qualquer coisa: quantas entram, quantas saem,
+o que mudou de situação e o intervalo de meses. `ferramentas/pauta-exemplo.txt`
+é a pauta de 22/09/2026, que serve de referência de formato.
+
+A ferramenta casa cada linha com a demanda que já existe e **preserva id e
+título**, para o time não ver os cards mudarem de nome à toa. E cuida da parte
+chata: a pauta só traz dia/mês e atravessa a virada de ano, então a passagem é
+cronológica e a virada só conta quando o mês despenca de out/nov/dez para
+jan/fev/mar — virar a cada mês que diminui quebraria em cima dos itens fora de
+ordem que a pauta tem.
+
+---
+
 ## Sincronização em tempo real (Firebase)
+
+> ⚠ **Hoje a sincronização está fora do ar.** O banco `ns-criacao` devolve
+> `401 Permission denied` em todos os caminhos — as regras não estão mais
+> abertas, provavelmente porque o modo de teste do Firebase expirou (ele dura
+> 30 dias). Enquanto isso, cada pessoa vê só a cópia do próprio navegador e as
+> edições não chegam a ninguém. Conserte em **Realtime Database → Regras**, no
+> console. Detalhes e a ordem certa de fazer isso estão no
+> `docs/CONTEXTO-DO-PROJETO.md`.
 
 Sem configuração, o app funciona, mas cada pessoa vê os dados do próprio
 navegador. Para o time inteiro ver e editar ao vivo, conecte um Realtime
@@ -140,12 +173,17 @@ A conferência da senha acontece **no navegador**, contra a lista de usuários
 guardada no próprio banco. Junto com a aprovação por administrador, isso
 organiza quem entra e evita engano no dia a dia. **Não é segurança.**
 
-As regras do Realtime Database continuam abertas, então quem tiver o link e
-abrir o console do navegador lê e altera tudo sem passar pela tela de entrada.
-A aprovação é um portão de processo, não uma barreira de dados: quem está
-esperando liberação já baixou as demandas para o navegador antes de ver a sala
-de espera — a tela esconde, não impede — e pode trocar o próprio estado pelo
-console.
+O banco em si passou a negar acesso não autenticado (verificado em 22/09/2026:
+todo caminho devolve `401 Permission denied`, provavelmente porque o modo de
+teste do Firebase expirou). Isso **não** fecha o quadro, e tem um efeito
+colateral sério descrito na seção de sincronização: ninguém está sincronizando.
+
+A exposição continua, por outra porta: a lista inteira de demandas é a semente
+dentro do `assets/app.js`, que é servido publicamente. Quem abrir o link lê
+todas as demandas no código-fonte da página, com cliente e responsável, sem
+passar pela tela de entrada. Por isso a aprovação por administrador é um portão
+de processo, não uma barreira de dados: quem espera liberação já tem os dados
+no navegador — a tela esconde, não impede.
 
 Repositório privado protege o código-fonte no GitHub, **não** o site: o `app.js`
 publicado carrega os mesmos dados. O `robots.txt` e o header `X-Robots-Tag`

@@ -25,7 +25,7 @@ demandas/
 ├── CONTEXTO-DO-PROJETO.md  ← este arquivo
 └── assets/
     ├── styles.css      ← todo o CSS
-    └── app.js          ← toda a lógica + as 746 tarefas + config Firebase
+    └── app.js          ← toda a lógica + as 841 demandas + config Firebase
 ```
 
 Todos os caminhos são **relativos** (`assets/...`). Não há arquivos de imagem
@@ -423,16 +423,28 @@ roxo = time), mensagem e timestamp. Tem um botão discreto "Limpar histórico".
 
 ## Dados
 
-### 746 tarefas reais
-Importadas de um PDF (`NASALA_PAUTAS_20252026.pdf`) com as pautas da agência.
-Distribuição: **734 concluídas**, **12 pendentes**.
-Por categoria: NSCO 684, CIDADE 27, EVENTOS 35.
+### 841 demandas reais (pauta de 22/09/2026)
 
-Critério usado na importação:
-- Check laranja preenchido no PDF → `concluído`
-- Círculo vazado → `pendente`
-- Datas no formato `dd/mm` extraídas do título; **ano inferido**:
-  meses 1–6 → 2026, meses 7–12 → 2025
+Importadas da pauta em texto que o time mantém. 819 concluídas, 22 pendentes,
+zero em andamento. Por casa: nSco. 767, nSeventos 46, cidade 28.
+
+**Ferramenta:** `ferramentas/pauta-para-tarefas.py` faz a conversão inteira —
+lê o texto da pauta e escreve o bloco `let tasks = [...]` do `app.js`,
+casando com o que já existe para preservar id e título.
+
+**Inferência de ano (o ponto delicado).** A pauta só traz dia/mês e atravessa
+a virada de ano. A importação anterior errava isso: o começo da lista (22/05)
+recebeu 2026 e o fim (18/07) recebeu 2025 — invertido, porque a lista é
+cronológica. O gráfico de entregas por mês mostrou meses errados por rodadas,
+parando em junho quando a pauta já ia até setembro.
+
+A regra correta é uma passagem cronológica por seção, e a virada de ano só
+conta quando o mês **despenca de out/nov/dez para jan/fev/mar**. Não dá para
+virar o ano a cada mês que diminui: a pauta tem itens fora de ordem digitados
+errado ("29/09" no meio de agosto, "28/12" no meio de novembro), e um deles
+sozinho cascatearia o erro por centenas de linhas.
+
+Hoje as datas cobrem 18 meses seguidos, de 2025-05 a 2026-10, sem buraco.
 
 ### Regra de mapeamento de pessoas (IMPORTANTE)
 No PDF original, as tarefas marcadas como **"Eu"** ou **"Pedro"** foram todas
@@ -468,7 +480,7 @@ Projeto: **ns-criacao**. Usa **Realtime Database**, no caminho `demandas`.
 Comportamento da inicialização (`load()` → `initFirebase()`):
 1. A tela **sempre renderiza primeiro** com os dados locais — nunca fica em branco
 2. Depois conecta ao Firebase em segundo plano
-3. Se o banco estiver **vazio**, ele é **semeado** automaticamente com as 746 tarefas
+3. Se o banco estiver **vazio**, ele é **semeado** automaticamente com as 841 demandas
 4. Um listener `onValue` mantém tudo sincronizado ao vivo entre os usuários
 5. Se o Firebase falhar, o app continua funcionando com `localStorage` e mostra
    "Sem sincronização" no indicador do canto inferior direito
@@ -477,14 +489,32 @@ Comportamento da inicialização (`load()` → `initFirebase()`):
 > navegador) e não é um segredo — a segurança vem das **regras** do Realtime
 > Database. Ainda assim, vale conferir as regras antes de uso em produção.
 
-### Pendências conhecidas do lado do Firebase
-- Confirmar se a `databaseURL` está correta. Ela foi **deduzida** do `projectId`
-  como `https://ns-criacao-default-rtdb.firebaseio.com`. Se o banco tiver sido
-  criado em outra região, a URL pode ser diferente
-  (ex: `https://ns-criacao-default-rtdb.<REGIAO>.firebasedatabase.app`).
-  A URL correta aparece no topo da página do Realtime Database no console.
-- Garantir que o Realtime Database foi criado e que as regras permitem
-  leitura e escrita.
+### ⚠ O banco está negando acesso (verificado em 22/09/2026)
+
+Qualquer leitura em `https://ns-criacao-default-rtdb.firebaseio.com` devolve
+`401 Permission denied` — na raiz e em todos os caminhos. As regras não estão
+mais abertas. O sintoma típico é o modo de teste do Firebase, que expira depois
+de 30 dias e passa a negar tudo.
+
+**Consequência prática: ninguém está sincronizando.** Cada pessoa vê o que está
+no `localStorage` do próprio navegador, e as edições de uma não chegam às
+outras. O app não quebra — `load()` renderiza primeiro do cache local e depois
+tenta o Firebase — mas o indicador "Sem sincronização" aparece, e o quadro
+deixou de ser compartilhado.
+
+**Isso também limita o que uma atualização de pauta alcança.** O `let tasks`
+do `app.js` é só a semente: quem já usou o quadro tem cópia local e o `load()`
+lê o `localStorage` **antes** do Firebase, então a semente nova não aparece
+para essa pessoa. Para a atualização chegar ao time:
+
+1. Corrigir as regras no console do Firebase (Realtime Database → Regras).
+2. Garantir que o banco receba a lista nova — o que estiver lá vai sobrescrever
+   a semente assim que a sincronização voltar. Se o banco tiver a lista antiga,
+   ela volta por cima.
+3. Só então a semente e o banco contam a mesma história.
+
+Vale aproveitar a correção das regras para fechar de verdade (Firebase Auth +
+`auth != null`), em vez de reabrir para todo mundo — a receita está no README.
 
 ---
 

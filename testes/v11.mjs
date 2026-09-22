@@ -16,9 +16,12 @@ await p.click('#authSubmit'); await p.waitForTimeout(2300);
 
 // 1. ocultar entregues mantém o número
 const antes = await p.locator('#stateChips .stat').first().innerText();
+const numero = (antes.match(/\d[\d.]*/) || [''])[0];
 await p.locator('#btnHide').click(); await p.waitForTimeout(600);
 const depois = await p.locator('#stateChips .stat').first().innerText();
-check('contador de entregues não zera', depois.includes('734'), `${antes.replace(/\n/g,' ')} → ${depois.replace(/\n/g,' ')}`);
+// O que importa é o número continuar o MESMO, não ser um valor específico.
+check('contador de entregues não zera', !!numero && depois.includes(numero),
+      `${antes.replace(/\n/g,' ')} → ${depois.replace(/\n/g,' ')}`);
 check('ficha de entregues esmaecida', await p.locator('.stat.is-muted').count() === 1);
 check('lista realmente esconde as entregues', await p.locator('.card.is-done').count() === 0);
 await p.locator('#btnHide').click(); await p.waitForTimeout(500);
