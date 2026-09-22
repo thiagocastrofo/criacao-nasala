@@ -901,36 +901,33 @@ function isFirebaseConfigured() {
   return FIREBASE_CONFIG.databaseURL && FIREBASE_CONFIG.apiKey;
 }
 
+/**
+ * Liga o Firebase: banco + autenticação.
+ *
+ * Quem manda na sessão passa a ser o Firebase Auth, não o `localStorage`. O
+ * `onAuthStateChanged` é a única porta de entrada: ele dispara no carregamento
+ * (com a sessão que o Firebase restaurou sozinho), depois de entrar e depois
+ * de sair. Todo o resto do app reage a ele.
+ *
+ * Os dados do quadro só começam a ser escutados quando a pessoa está liberada.
+ * Isso não é enfeite: com as regras fechadas, quem está pendente é rejeitado
+ * pelo banco, e tentar escutar daria erro no console a cada carregamento.
+ */
 async function initFirebase() {
   if (!isFirebaseConfigured()) return false;
   try {
-    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
-    const db = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-    fbApp = initializeApp(FIREBASE_CONFIG);
-    fbDb  = db.getDatabase(fbApp);
-    fbRef = db.ref(fbDb, FB_PATH);
-    fb    = db;
-
-    const snap = await db.get(fbRef);
-    const data = snap.exists() ? snap.val() : null;
-
-    if (!data || !data.tasks) {
-      // banco vazio: semeia já no formato novo
-      await db.set(fbRef, {tasks: byId(tasks), team, appTitle, log, users: {}, schema: 2});
-    } else if (Array.isArray(data.tasks)) {
-      await migrateTasksToMap(data);
-    }
+    const mods = await carregarFirebase();
+    fbApp = mods.initializeApp(FIREBASE_CONFIG);
+    fbDb  = mods.db.getDatabase(fbApp);
+    fbRef = mods.db.ref(fbDb, FB_PATH);
+    fb    = mods.db;
+    fbAuthMod = mods.auth;
+    fbAuth    = mods.auth.getAuth(fbApp);
 
     fbReady = true;
-
-    db.onValue(fbRef, snapshot => {
-      const d = snapshot.val();
-      if (d) applyRemoteData(d);
-    });
-
-    showSync('ok', 'Sincronizado');
+    mods.auth.onAuthStateChanged(fbAuth, u => { aoMudarAutenticacao(u).catch(erroDeSync); });
     return true;
-  } catch(e) {
+  } catch (e) {
     console.error('Firebase error:', e);
     fbReady = false;
     showSync('error', 'Sem sincronização');
@@ -938,28 +935,105 @@ async function initFirebase() {
   }
 }
 
-/**
- * Converte `tasks` de lista para mapa indexado por id, uma única vez.
- *
- * Enquanto as demandas eram uma lista, salvar qualquer coisa reescrevia o
- * bloco inteiro: duas pessoas editando ao mesmo tempo perdiam trabalho, e não
- * havia como o banco saber de quem é cada demanda. Com o mapa, cada demanda é
- * um nó próprio — dá para gravar uma só e dá para escrever regra em cima dela.
- *
- * A lista original é copiada para `_backup/tasks_v1` ANTES da conversão e não
- * é tocada depois. Se algo der errado, ela continua lá inteira.
- */
-async function migrateTasksToMap(data) {
-  showSync('saving', 'Convertendo o banco…');
-  const original = data.tasks;
-  await fb.set(fb.ref(fbDb, `${FB_PATH}/_backup/tasks_v1`), {
-    savedAt: new Date().toISOString(),
-    count: original.filter(Boolean).length,
-    tasks: original,
-  });
-  await fb.update(fbRef, {tasks: byId(original.filter(Boolean).map(normalizeTask)), schema: 2});
-  console.info(`Banco convertido para schema 2. Backup em ${FB_PATH}/_backup/tasks_v1.`);
+/** Separado para o teste poder injetar um Firebase falso em `window.__firebase`. */
+async function carregarFirebase() {
+  if (typeof window !== 'undefined' && window.__firebase) return window.__firebase;
+  const app  = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+  const db   = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
+  const auth = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+  return {initializeApp: app.initializeApp, db, auth};
 }
+
+function erroDeSync(e) {
+  console.error('Firebase:', e);
+  showSync('error', 'Sem sincronização');
+}
+
+/**
+ * O Firebase diz quem está logado; o perfil no banco diz o que essa pessoa é.
+ *
+ * As credenciais moram no Firebase Auth. O que continua no banco é o perfil:
+ * nome, se é administrador, a qual pessoa do time corresponde e a situação da
+ * liberação. A chave é o uid do Firebase.
+ */
+async function aoMudarAutenticacao(u) {
+  pararEscutaDeDados();
+  pararEscutaDePerfil();
+  if (!u) { session = null; renderAuth(); return; }
+
+  perfilOff = fb.onValue(fb.ref(fbDb, `${FB_PATH}/users/${u.uid}`), async snap => {
+    let perfil = snap.val();
+    if (!perfil) perfil = await criarPerfil(u);
+    session = publicUser({...perfil, uid: u.uid, email: u.email || perfil.email});
+    if (liberado(session)) {
+      escutarDados();
+      // Entrar de fato só na primeira vez; as atualizações seguintes do perfil
+      // (virou admin, mudou de nome) não podem reiniciar a tela inteira.
+      if (document.getElementById('appShell').hidden) enterApp();
+      else { applyRole(); renderUserChip(); updateAccessBadge(); }
+    } else {
+      pararEscutaDeDados();
+      renderWait();
+    }
+  }, erroDeSync);
+}
+
+/**
+ * Perfil que falta: conta criada direto no console do Firebase, ou primeiro
+ * acesso depois da migração. Nasce pendente, como qualquer cadastro — menos
+ * quando ainda não existe perfil nenhum: aí é a conta que está montando o
+ * quadro, e ela vira administradora liberada. Esse arranque só funciona
+ * enquanto as regras ainda deixam ler `users`; depois de fechadas, quem cria
+ * conta cai na fila normal.
+ */
+let nomeDoCadastro = '';   // ponte entre o formulário e o onAuthStateChanged
+
+async function criarPerfil(u) {
+  let primeira = false;
+  try {
+    const todos = await fb.get(fb.ref(fbDb, `${FB_PATH}/users`));
+    primeira = !todos.exists() || Object.keys(todos.val() || {}).length === 0;
+  } catch (_) { /* sem permissão de ler: entra como pendente */ }
+
+  // O onAuthStateChanged dispara antes de o displayName ser gravado, então o
+  // nome digitado no formulário chega por aqui.
+  const nome = nomeDoCadastro || u.displayName || (u.email || '').split('@')[0];
+  nomeDoCadastro = '';
+  const membro = team.find(m => m.name.toLowerCase() === nome.toLowerCase());
+  const perfil = {
+    uid: u.uid, name: nome, email: normEmail(u.email || ''),
+    admin: primeira, memberName: membro ? membro.name : nome,
+    createdAt: new Date().toISOString(),
+    status: primeira ? ATIVO : PENDENTE,
+  };
+  await fb.set(fb.ref(fbDb, `${FB_PATH}/users/${u.uid}`), perfil);
+  return perfil;
+}
+
+function escutarDados() {
+  if (dadosOff) return;                       // já escutando
+  dadosOff = fb.onValue(fbRef, snapshot => {
+    const d = snapshot.val();
+    if (d) applyRemoteData(d);
+    // "Vazio" aqui é não ter demandas. O nó já existe assim que o primeiro
+    // perfil é gravado, então testar o nó inteiro nunca pegaria este caso.
+    if (!d || !d.tasks) semearBanco();
+    showSync('ok', 'Sincronizado');
+  }, erroDeSync);
+}
+
+/**
+ * Banco vazio ganha a lista que veio no `app.js`. Só quem está liberado chega
+ * aqui, que é justamente quem as regras deixam escrever.
+ */
+function semearBanco() {
+  if (!isAdmin()) return;
+  fb.update(fbRef, {tasks: byId(tasks), team, appTitle, log, schema: 2})
+    .catch(erroDeSync);
+}
+function pararEscutaDeDados() { if (dadosOff) { dadosOff(); dadosOff = null; } }
+function pararEscutaDePerfil() { if (perfilOff) { perfilOff(); perfilOff = null; } }
+
 
 const byId = list => Object.fromEntries(list.filter(Boolean).map(t => [String(t.id), t]));
 const toList = v => !v ? [] : (Array.isArray(v) ? v.filter(Boolean) : Object.values(v));
@@ -1007,7 +1081,15 @@ let shown = {};
 
 
 // Firebase handles
+// `fb` guarda o módulo do banco. Ele PRECISA ser declarado: este arquivo é
+// um <script type="module">, portanto modo estrito, e atribuir a uma variável
+// não declarada lança ReferenceError. Foi exatamente isso que manteve a
+// sincronização fora do ar — o initFirebase caía no catch e mostrava
+// "Sem sincronização" sem dizer por quê.
+let fb = null;
 let fbApp = null, fbDb = null, fbRef = null;
+let fbAuth = null, fbAuthMod = null;
+let dadosOff = null, perfilOff = null;   // funções que desligam cada escuta
 let fbReady = false;
 let syncTimeout = null;
 
@@ -1065,18 +1147,21 @@ const saveTaskNode = t  => writeNode(`tasks/${t.id}`, t);
 const removeTaskNode = id => writeNode(`tasks/${id}`, null);
 const saveTeam2    = () => writeNode('team', team);
 const saveUsers    = () => writeNode('users', users);
+/**
+ * Grava um perfil só, e grava o valor RECEBIDO — não o que estiver em memória.
+ *
+ * Isso não é preciosismo: qualquer escrita intermediária (a do time, por
+ * exemplo) acorda o listener, o applyRemoteData repõe `users` com o que ainda
+ * está no banco, e uma gravação que lesse a memória depois disso regravaria o
+ * valor velho por cima da mudança. Aconteceu no teste.
+ */
+const saveUserNode = (uid, perfil) => temFirebaseAuth()
+  ? writeNode(`users/${uid}`, perfil || allUsers()[uid] || null)
+  : saveUsers();
 const saveLog      = () => writeNode('log', log.slice(0, 200));
 const saveTitle    = () => writeNode('appTitle', appTitle);
 
 /** Salva tudo. Só para casos raros (importação, reset); o dia a dia grava um nó. */
-function persist() {
-  cacheLocal();
-  if (!fbReady || !fb) return;
-  showSync('saving', 'Salvando…');
-  fb.update(fbRef, {tasks: byId(tasks), team, appTitle, log: log.slice(0, 200), users})
-    .then(() => showSync('ok', 'Salvo'))
-    .catch(() => showSync('error', 'Erro ao salvar'));
-}
 
 async function load() {
   loadPrefs();
@@ -1389,7 +1474,44 @@ function syncUserFromStore() {
   if (eraAdmin !== session.admin) { renderUserChip(); render(); }
 }
 
+const temFirebaseAuth = () => !!(fbAuth && fbAuthMod);
+
+/** Traduz o código do Firebase para uma frase que a pessoa entende. */
+function erroDeAuth(e) {
+  const c = (e && e.code) || '';
+  if (/wrong-password|user-not-found|invalid-credential|invalid-login/.test(c))
+    return 'E-mail ou senha não conferem.';
+  if (c.includes('invalid-email'))        return 'E-mail inválido.';
+  if (c.includes('email-already-in-use')) return 'Já existe uma conta com esse e-mail.';
+  if (c.includes('weak-password'))        return 'A senha precisa de pelo menos 8 caracteres.';
+  if (c.includes('too-many-requests'))    return 'Muitas tentativas seguidas. Espere um pouco e tente de novo.';
+  if (c.includes('network-request-failed')) return 'Sem conexão com o servidor de contas.';
+  if (c.includes('operation-not-allowed'))
+    return 'O login por e-mail e senha não está ativado no Firebase.';
+  console.error('auth:', e);
+  return 'Não deu para concluir agora. Tente de novo.';
+}
+
+/**
+ * Entrar. Com o Firebase no ar, quem confere a senha é ele — o app nunca mais
+ * vê hash nenhum. Sem Firebase (aberto por arquivo, ou fora do ar), cai na
+ * conferência local de sempre, que é o que mantém o quadro utilizável offline.
+ * Essa segunda porta não enfraquece nada em produção: com as regras fechadas,
+ * quem entra por ela não consegue ler o banco.
+ */
 async function doLogin(email, password) {
+  if (temFirebaseAuth()) {
+    try {
+      await fbAuthMod.signInWithEmailAndPassword(fbAuth, normEmail(email), password);
+      // Daqui em diante quem decide é o onAuthStateChanged: ele carrega o
+      // perfil e manda para o quadro ou para a sala de espera.
+      return {assincrono: true};
+    } catch (e) { return {error: erroDeAuth(e)}; }
+  }
+  return doLoginLocal(email, password);
+}
+
+async function doLoginLocal(email, password) {
   const u = userByEmail(email);
   // Deriva mesmo sem usuário, para a resposta demorar igual nos dois casos.
   const hash = await derive(password, u ? u.salt : newSalt());
@@ -1409,6 +1531,22 @@ async function doSignup({name, email, password}) {
   if (name.length < 2)  return {error: 'Escreva seu nome.'};
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return {error: 'E-mail inválido.'};
   if (String(password).length < 8) return {error: 'A senha precisa de pelo menos 8 caracteres.'};
+
+  if (temFirebaseAuth()) {
+    try {
+      nomeDoCadastro = name;
+      const cred = await fbAuthMod.createUserWithEmailAndPassword(fbAuth, email, password);
+      if (fbAuthMod.updateProfile) {
+        try { await fbAuthMod.updateProfile(cred.user, {displayName: name}); } catch (_) {}
+      }
+      // O perfil (nome, situação, papel) é criado pelo onAuthStateChanged,
+      // que já sabe distinguir a primeira conta do quadro das demais.
+      addLog('team', `${name} pediu acesso`);
+      saveLog();
+      return {assincrono: true};
+    } catch (e) { return {error: erroDeAuth(e)}; }
+  }
+
   if (userByEmail(email)) return {error: 'Já existe uma conta com esse e-mail.'};
 
   const salt = newSalt();
@@ -1436,6 +1574,10 @@ async function doSignup({name, email, password}) {
 }
 
 function signOut() {
+  if (temFirebaseAuth()) {
+    // O onAuthStateChanged devolve para a tela de entrada quando concluir.
+    fbAuthMod.signOut(fbAuth).catch(e => console.error('signOut:', e));
+  }
   session = null;
   saveSession();
   closeMe();
@@ -1527,7 +1669,8 @@ function setUserStatus(uid, status, verbo) {
   if (!u) return;
   if (uid === session.uid) return denied('Você não pode mexer no próprio acesso.');
 
-  users = {...map, [uid]: {...u, status}};
+  const atualizado = {...u, status};
+  users = {...map, [uid]: atualizado};
 
   // Só entra no time quando é liberado — antes disso apareceria nos filtros
   // e na carga do dashboard sem ter acesso ao quadro.
@@ -1540,7 +1683,7 @@ function setUserStatus(uid, status, verbo) {
   }
 
   addLog('team', `${u.name} ${verbo}`);
-  saveUsers(); saveLog();
+  saveUserNode(uid, atualizado); saveLog();
   renderAccess(); updateAccessBadge(); buildFilters(); render();
   toast(`${u.name.split(' ')[0]} ${verbo}.`, {ms: 3000});
 }
@@ -1555,9 +1698,10 @@ function setUserAdmin(uid, value) {
   if (uid === session.uid && !value) return denied('Você não pode tirar o próprio acesso de administrador.');
   const map = allUsers();
   if (!map[uid]) return;
-  users = {...map, [uid]: {...map[uid], admin: !!value}};
+  const atualizado = {...map[uid], admin: !!value};
+  users = {...map, [uid]: atualizado};
   addLog('team', `${map[uid].name} ${value ? 'virou administrador' : 'deixou de ser administrador'}`);
-  saveUsers(); saveLog(); renderProfiles();
+  saveUserNode(uid, atualizado); saveLog(); renderProfiles();
 }
 
 // ═══════════════════════════════════════════════════
@@ -1777,6 +1921,8 @@ async function submitAuth(event) {
       else res = await doSignup({name, email, password: pass});
     }
     if (res.error) { authError(res.error); document.getElementById('authPass').focus(); return; }
+    // Com Firebase, quem troca de tela é o onAuthStateChanged, logo em seguida.
+    if (res.assincrono) { btn.textContent = 'Entrando…'; return; }
     if (res.esperando) { renderWait(); return; }
     enterApp();
   } catch (e) {
@@ -2762,8 +2908,9 @@ function setUserMember(uid, memberName) {
   if (!isAdmin()) return denied('Só administradores mudam isso.');
   const map = allUsers();
   if (!map[uid]) return;
-  users = {...map, [uid]: {...map[uid], memberName}};
-  saveUsers();
+  const atualizado = {...map[uid], memberName};
+  users = {...map, [uid]: atualizado};
+  saveUserNode(uid, atualizado);
   syncUserFromStore();
   renderProfiles();
 }
@@ -3225,5 +3372,5 @@ Object.assign(window, {
   saveSetupConfig, skipSetup,
   // contas e avisos
   submitAuth, toggleAuthMode, signOut, ask, askResolve, setUserAdmin, setUserMember, toast,
-  render, persist,
+  render,
 });

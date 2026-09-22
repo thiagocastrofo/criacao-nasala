@@ -196,23 +196,56 @@ texto. Cada conta tem um sal aleatório e a senha vira uma derivação
 PBKDF2-SHA256 de 210 mil iterações — se o banco vazar, as senhas que as pessoas
 reusam em outros lugares não vão junto.
 
-### Como fechar de verdade
+### Fechar o banco
 
-Duas mudanças, nesta ordem:
+O código já está pronto: o app usa Firebase Auth quando ele está disponível.
+Falta ligar no console e publicar as regras. **A ordem importa** — publicar as
+regras antes das contas existirem tranca o time inteiro para fora.
 
-1. No console do Firebase, **Authentication → Sign-in method**, ative
-   **E-mail/senha**. Troque `doLogin` / `doSignup` no `app.js` pelas funções
-   `signInWithEmailAndPassword` e `createUserWithEmailAndPassword` do módulo
-   `firebase-auth.js`. Adicione o domínio do Render aos *Authorized domains*.
-2. Em **Realtime Database → Regras**, feche para quem está autenticado:
+**1. Ligar o login por e-mail e senha.**
+No console, *Authentication → Sign-in method → E-mail/senha → Ativar*.
 
-   ```json
-   { "rules": { ".read": "auth != null", ".write": "auth != null" } }
-   ```
+**2. Liberar o domínio.**
+*Authentication → Settings → Authorized domains*, adicione
+`criacao-nasala.onrender.com`. Sem isso o login funciona no `localhost` e
+quebra em produção.
 
-Alternativa sem mexer no código: pôr uma barreira de rede na frente do site
-(Cloudflare Access, grátis até 50 pessoas), que exige domínio próprio no DNS da
-Cloudflare. Protege o site; não protege o banco.
+**3. Criar a primeira conta, com as regras ainda abertas.**
+Abra o site e cadastre-se normalmente. A primeira conta do quadro nasce
+**liberada e administradora** — é o arranque, e só funciona enquanto as regras
+deixam ler `users`. Confira em *Realtime Database → Dados* que apareceu
+`demandas/users/<uid>` com `"admin": true` e `"status": "ativo"`.
+
+**4. O time se cadastra.**
+Cada pessoa cria a conta e fica na fila. Você libera em *menu da conta →
+Liberar acesso*. Faça isso antes do passo 5, ou terá que liberar pelo console.
+
+**5. Publicar as regras.**
+Cole o conteúdo de [`firebase-regras.json`](firebase-regras.json) em
+*Realtime Database → Regras* e publique. A partir daí:
+
+| Quem | O que o banco permite |
+|---|---|
+| Sem conta | Nada |
+| Pendente | Ler só o próprio perfil |
+| Liberado | Ler e escrever o quadro |
+| Administrador | Mais: alterar o perfil dos outros e ler o `_backup` |
+
+O arquivo de regras explica as duas armadilhas que ele evita: não existe
+`.write` no nó `demandas` (regra rasa concede para tudo abaixo e a profunda não
+revoga, então um `.write` ali deixaria qualquer pessoa se promover a
+administradora), e quem cria o próprio perfil só consegue criá-lo pendente e
+sem ser admin.
+
+**Depois de fechar**, a tela de entrada deixa de ser teatro: quem não passa por
+ela não obtém os dados, porque o banco recusa. O que continua exposto é a
+**semente** dentro do `app.js` público — a lista de demandas que vai no código.
+Para tirar isso também, a semente teria que sair do arquivo, e o quadro passaria
+a depender do banco para ter qualquer conteúdo.
+
+> Se algo der errado no meio da virada, as regras abertas voltam a valer
+> colando `{"rules":{".read":true,".write":true}}`, e o `_backup` no banco
+> guarda a última cópia boa.
 
 ---
 

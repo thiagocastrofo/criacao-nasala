@@ -1,0 +1,63 @@
+// Regras do Realtime Database — cole em Realtime Database → Regras, no console.
+//
+// NÃO publique antes de seguir a ordem do README, seção "Fechar o banco".
+// Publicar isto sem as contas criadas tranca o time inteiro para fora.
+//
+// O eixo é o perfil em demandas/users/<uid>:
+//   • "ativo"    → lê e escreve o quadro
+//   • "pendente" → enxerga só o próprio perfil, para saber que está na fila e
+//                  para o app entrar sozinho na hora em que for liberado
+// Assim a aprovação deixa de ser só tela e vira barreira de dados.
+//
+// Duas armadilhas que estas regras evitam de propósito:
+//
+// 1. NÃO existe ".write" no nó "demandas". Em Realtime Database, uma regra
+//    rasa que concede vale para tudo abaixo, e as regras profundas não
+//    conseguem revogar. Um ".write" aqui deixaria qualquer pessoa liberada
+//    reescrever o perfil das outras — inclusive se promovendo a administradora.
+//    Por isso a escrita é concedida nó a nó.
+//
+// 2. Quem cria o próprio perfil só consegue criá-lo PENDENTE e NÃO
+//    administrador. Sem isso, bastaria cadastrar-se mandando
+//    {"status":"ativo","admin":true} para pular a fila inteira.
+
+{
+  "rules": {
+
+    "demandas": {
+      // Ler o quadro: só quem está liberado.
+      ".read": "auth != null && root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo'",
+
+      "tasks":    { ".write": "auth != null && root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo'" },
+      "team":     { ".write": "auth != null && root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo'" },
+      "appTitle": { ".write": "auth != null && root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo'" },
+      "log":      { ".write": "auth != null && root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo'" },
+      "schema":   { ".write": "auth != null && root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo'" },
+
+      "users": {
+        "$uid": {
+          // A própria pessoa lê o seu perfil mesmo pendente; quem está
+          // liberado lê todos, que é o que alimenta o painel de acessos.
+          ".read": "auth != null && ($uid === auth.uid || root.child('demandas/users').child(auth.uid).child('status').val() === 'ativo')",
+
+          // Criar o próprio perfil: uma vez só, pendente e sem ser admin.
+          // Alterar perfil dos outros: só administrador, e nunca o próprio.
+          ".write": "auth != null && ( ($uid === auth.uid && !data.exists() && newData.child('status').val() === 'pendente' && newData.child('admin').val() === false) || (root.child('demandas/users').child(auth.uid).child('admin').val() === true && $uid !== auth.uid) )",
+
+          "status": { ".validate": "newData.isString() && newData.val().matches(/^(ativo|pendente|recusado)$/)" },
+          "admin":  { ".validate": "newData.isBoolean()" },
+          "uid":    { ".validate": "newData.val() === $uid" },
+          "email":  { ".validate": "newData.isString()" },
+          "name":   { ".validate": "newData.isString() && newData.val().length > 0" }
+        }
+      }
+    },
+
+    // Cópia de segurança, fora do nó que o app escuta — se ficasse dentro,
+    // cada carregamento baixaria o backup junto. Só administrador vê.
+    "_backup": {
+      ".read":  "auth != null && root.child('demandas/users').child(auth.uid).child('admin').val() === true",
+      ".write": "auth != null && root.child('demandas/users').child(auth.uid).child('admin').val() === true"
+    }
+  }
+}

@@ -529,6 +529,57 @@ escolha consciente para destravar o time, e é temporária — o fechamento de
 verdade é Firebase Auth com `auth != null`, receita no README. Enquanto não
 for feito, o `_backup` no próprio banco é a rede de proteção.
 
+### O bug que manteve a sincronização fora do ar
+
+`initFirebase` fazia `fb = db` sem `fb` estar declarado em lugar nenhum. O
+`app.js` é `<script type="module">`, portanto **modo estrito**, onde atribuir a
+variável não declarada lança `ReferenceError`. O erro caía no `catch` do
+`initFirebase`, que mostrava "Sem sincronização" sem dizer por quê — e o app
+seguia funcionando com o `localStorage`, então ninguém percebeu que o quadro
+tinha deixado de ser compartilhado.
+
+Passei uma tarde inteira culpando as regras do Firebase por isso. As regras
+estavam abertas o tempo todo. **"Sem sincronização" é um sintoma, não um
+diagnóstico** — antes de mexer no console, abra o devtools e leia o erro que o
+`console.error('Firebase error:', e)` imprime.
+
+Fica também a lição de método: o ambiente de desenvolvimento bloqueia o
+`gstatic.com`, então o caminho do Firebase nunca rodava nos testes. Um caminho
+que nenhum teste percorre é um caminho que ninguém sabe se funciona. Por isso
+existe agora o `testes/firebase-falso.js`.
+
+### Autenticação de verdade (set/2026)
+
+As credenciais saíram do banco e foram para o **Firebase Auth**. O que fica em
+`demandas/users/<uid>` é o perfil — nome, papel, a qual pessoa do time
+corresponde e a situação da liberação. Nenhum `hash` ou `salt` é gravado.
+
+Quem manda na sessão é o `onAuthStateChanged`, não o `localStorage`. Ele é a
+única porta: dispara no carregamento com a sessão que o Firebase restaurou, e
+de novo a cada entrada e saída. O app reage a ele.
+
+**Os dados só são escutados quando a pessoa está liberada.** Não é enfeite:
+com as regras fechadas, quem está pendente é recusado pelo banco, e escutar
+daria erro a cada carregamento. A aprovação por administrador deixou de ser só
+tela e virou barreira de dados.
+
+Três coisas que não podem regredir:
+
+1. **`let fb = null;` precisa continuar existindo.** Ver acima.
+2. **Gravar perfil passa o valor, não lê a memória.** Qualquer escrita
+   intermediária acorda o listener, o `applyRemoteData` repõe `users` com o que
+   ainda está no banco, e uma gravação que lesse a memória depois disso
+   regravaria o valor velho por cima. O teste pegou isso.
+3. **O caminho sem Firebase continua existindo** (conferência local por
+   PBKDF2). É o que mantém o quadro utilizável offline e é o que as outras 13
+   suítes exercitam. Não enfraquece produção: com as regras fechadas, quem
+   entra por essa porta não lê o banco.
+
+O arranque da primeira conta (nasce liberada e administradora) só funciona
+enquanto as regras deixam ler `users`. Depois de fechadas, todo cadastro cai
+na fila — inclusive o de quem perder o acesso de administrador. Se isso
+acontecer, a saída é reabrir as regras, consertar o perfil e fechar de novo.
+
 ---
 
 ## Hospedagem (decidido em set/2026)
