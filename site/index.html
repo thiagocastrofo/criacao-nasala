@@ -71,11 +71,6 @@
       <button type="button" class="auth-link" id="authSwitchBtn" onclick="toggleAuthMode()">Criar uma</button>
     </p>
 
-    <p class="auth-note">
-      Esta tela organiza quem mexe em quê dentro do time. Ela <strong>não</strong>
-      protege o banco: as regras do Firebase ainda estão abertas. Veja o README
-      para fechar de verdade.
-    </p>
   </form>
 </div>
 
@@ -145,6 +140,10 @@
             <button class="admin-only" role="menuitem" id="btnAccess" onclick="closeMore();openAccess()">
               <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3.4 6.1V4.3a3.1 3.1 0 0 1 6.2 0v1.8" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><rect x="2.1" y="6.1" width="8.8" height="5.4" rx="1.7" stroke="currentColor" stroke-width="1.24"/></svg>
               Liberar acesso<span class="menu-badge" id="accessCount" hidden></span>
+            </button>
+            <button class="admin-only" role="menuitem" onclick="closeMore();openLink()">
+              <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M5.2 7.8a2.2 2.2 0 0 0 3.1 0l1.9-1.9a2.2 2.2 0 0 0-3.1-3.1l-.5.5" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><path d="M7.8 5.2a2.2 2.2 0 0 0-3.1 0L2.8 7.1a2.2 2.2 0 0 0 3.1 3.1l.5-.5" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+              Contas e pessoas<span class="menu-badge is-warn" id="linkCount" hidden></span>
             </button>
             <button class="admin-only" role="menuitem" onclick="closeMore();openProfiles()">
               <svg width="15" height="15" viewBox="0 0 13 13" fill="none" aria-hidden="true"><circle cx="4.6" cy="4.3" r="1.9" stroke="currentColor" stroke-width="1.24"/><path d="M1.4 11c.4-1.9 1.6-2.9 3.2-2.9S7.4 9.1 7.8 11" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/><circle cx="9.4" cy="4.9" r="1.5" stroke="currentColor" stroke-width="1.24"/><path d="M8.2 10.6c.3-1.4 1.2-2.1 2.3-2.1c.5 0 1.1.2 1.5.6" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
@@ -423,6 +422,26 @@
 <!-- ═══ LIBERAR ACESSO ═══
      Quem se cadastra fica pendente até um administrador liberar. Aqui ele
      aprova, recusa e também suspende quem já entrou. -->
+<!-- ═══ CONTAS E PESSOAS ═══
+     As demandas são atribuídas por NOME da pessoa do time; as contas são
+     identificadas pelo uid do Firebase. O vínculo entre os dois é o campo
+     `memberName`. Quando alguém se cadastra com um nome que não bate com a
+     lista, esse vínculo nasce solto — e a conta não enxerga as próprias
+     demandas. É aqui que se conserta. -->
+<div class="overlay" id="linkOverlay" role="dialog" aria-modal="true" aria-labelledby="linkTitle" hidden
+     onclick="if(event.target===this)closeLink()">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-hd">
+      <h2 id="linkTitle">Contas e pessoas</h2>
+      <button class="modal-close" onclick="closeLink()" aria-label="Fechar">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.24" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Cada conta precisa apontar para uma pessoa do time. É esse vínculo que faz as demandas antigas aparecerem para quem acabou de se cadastrar.</p>
+    <div id="linkBody"></div>
+  </div>
+</div>
+
 <div class="overlay" id="accessOverlay" role="dialog" aria-modal="true" aria-labelledby="accessTitle" hidden
      onclick="if(event.target===this)closeAccess()">
   <div class="modal" style="max-width:560px">

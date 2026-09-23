@@ -165,6 +165,21 @@ Administradores também podem **ocultar** um perfil sem apagar nada: a pessoa
 some dos filtros, do seletor de responsáveis e da carga do dashboard, mas as
 demandas dela continuam na lista.
 
+### Contas e pessoas
+
+As demandas guardam o **nome** da pessoa do time; as contas são o uid do
+Firebase. Quem se cadastra com um nome diferente do que está na lista
+("Vitinho" em vez de "Vitão") acaba ligado a uma pessoa nova, sem histórico —
+e entra sem ver nenhuma demanda como sua.
+
+*Menu da conta → **Contas e pessoas*** resolve: lista cada conta com um seletor
+da pessoa do time correspondente, marca em laranja as que precisam de atenção,
+e mostra quem do time ainda não tem conta. Ao religar uma conta, se a pessoa
+antiga ficou sem demanda e sem outra conta, ela sai do time sozinha.
+
+O item do menu ganha um contador laranja quando há vínculo para revisar — o
+problema é silencioso e sem isso ninguém perceberia.
+
 ### ⚠ O que esta tela protege — e o que não protege
 
 A senha é conferida pelo **Firebase Auth** — o app não guarda nem vê hash

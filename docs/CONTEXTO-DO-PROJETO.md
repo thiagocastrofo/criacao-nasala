@@ -580,6 +580,37 @@ enquanto as regras deixam ler `users`. Depois de fechadas, todo cadastro cai
 na fila — inclusive o de quem perder o acesso de administrador. Se isso
 acontecer, a saída é reabrir as regras, consertar o perfil e fechar de novo.
 
+### Contas e pessoas: o vínculo `memberName`
+
+As demandas guardam o **nome** da pessoa do time (`responsible: ["Vitão"]`).
+As contas são o **uid** do Firebase. Quem liga os dois é o `memberName` do
+perfil — e esse vínculo é o ponto frágil do modelo.
+
+Quem se cadastra com um nome que não bate com ninguém da lista faz a aprovação
+**criar uma pessoa nova no time**. "Vitinho" vira um duplicado do "Vitão", com
+zero demandas, e a pessoa entra sem enxergar nada como seu. O app não tem como
+adivinhar que são a mesma pessoa — mas tem como apontar a suspeita.
+
+Daí o painel **Contas e pessoas** (`#linkOverlay`, só administrador), que
+marca em laranja toda conta que precisa de atenção:
+
+- vínculo apontando para nome que não está no time, ou
+- vínculo apontando para pessoa com **zero demandas**, que é o sinal de
+  duplicata recém-criada.
+
+Trocar o vínculo no `<select>` chama `ligarConta(uid, nome)`, que ainda faz uma
+limpeza: se a pessoa de onde a conta saiu ficou **sem demanda nenhuma e sem
+outra conta apontando para ela**, ela sai do time. Sem isso o filtro encheria
+de nomes fantasmas a cada cadastro com apelido.
+
+O contador laranja no menu existe porque o problema é silencioso: quem está com
+o vínculo errado simplesmente não vê as próprias demandas, e não há erro
+nenhum na tela.
+
+Regra associada: `openAvForNameFromProfile` **não pode falhar calada**. Quando
+o `memberName` não existe no time não há avatar para editar, e antes o clique
+no lápis não fazia nada nem dizia por quê. Hoje avisa e aponta para este painel.
+
 ---
 
 ## Hospedagem (decidido em set/2026)

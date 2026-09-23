@@ -1199,8 +1199,10 @@ function refreshOpenPanels() {
   if (aberto('meOverlay'))       renderMe();
   if (aberto('teamOverlay'))     renderTeamList();
   if (aberto('accessOverlay'))   renderAccess();
+  if (aberto('linkOverlay'))     renderLink();
   renderUserChip();
   updateAccessBadge();
+  updateLinkBadge();
 }
 
 const normalizeTask   = t => ({...t, responsible: Array.isArray(t.responsible) ? t.responsible : [t.responsible].filter(Boolean)});
@@ -1684,13 +1686,164 @@ function setUserStatus(uid, status, verbo) {
 
   addLog('team', `${u.name} ${verbo}`);
   saveUserNode(uid, atualizado); saveLog();
-  renderAccess(); updateAccessBadge(); buildFilters(); render();
+  renderAccess(); updateAccessBadge(); updateLinkBadge(); buildFilters(); render();
   toast(`${u.name.split(' ')[0]} ${verbo}.`, {ms: 3000});
 }
 
 const approveUser = uid => setUserStatus(uid, ATIVO,    'teve o acesso liberado');
 const rejectUser  = uid => setUserStatus(uid, RECUSADO, 'teve o acesso recusado');
 const suspendUser = uid => setUserStatus(uid, RECUSADO, 'teve o acesso suspenso');
+
+// ═══════════════════════════════════════════════════
+//  CONTAS E PESSOAS
+//  As demandas guardam o NOME da pessoa do time; as contas são o uid do
+//  Firebase. Quem liga os dois é o `memberName` do perfil. Cadastro com nome
+//  que não bate com a lista nasce com esse vínculo solto — e aí a pessoa entra
+//  e não vê nenhuma demanda como sua. Este painel é onde isso se conserta.
+// ═══════════════════════════════════════════════════
+
+const demandasDe = nome => tasks.filter(t => (t.responsible || []).includes(nome)).length;
+
+/**
+ * Contas que pedem atenção do administrador.
+ *
+ * Duas situações, e a segunda é a comum: aprovar alguém cujo nome não bate com
+ * a lista CRIA uma pessoa nova no time. "Vitinho" vira um duplicado do "Vitão",
+ * com zero demandas — e a pessoa entra sem enxergar nada como seu. Não dá para
+ * o app adivinhar que são a mesma pessoa; dá para ele apontar a suspeita.
+ */
+function contasParaRever() {
+  const nomes = new Set(team.map(m => m.name));
+  return Object.values(allUsers()).filter(u => {
+    const alvo = u.memberName || u.name;
+    return !nomes.has(alvo) || demandasDe(alvo) === 0;
+  });
+}
+
+/** Aviso no menu: vínculo solto é silencioso, então precisa ser visível. */
+function updateLinkBadge() {
+  const el = document.getElementById('linkCount');
+  if (!el) return;
+  const n = isAdmin() ? contasParaRever().length : 0;
+  el.textContent = n;
+  el.hidden = !n;
+}
+
+function openLink() {
+  if (!isAdmin()) return denied('Só administradores ligam contas a pessoas.');
+  renderLink();
+  openOverlay('linkOverlay');
+}
+function closeLink() { closeOverlay('linkOverlay'); }
+
+function renderLink() {
+  const body = document.getElementById('linkBody');
+  if (!body) return;
+
+  const contas = Object.values(allUsers())
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  const nomes = new Set(team.map(m => m.name));
+  // Uma pessoa do time só deveria ter uma conta; se tiver duas, é engano.
+  const donos = {};
+  contas.forEach(u => {
+    const n = u.memberName || u.name;
+    (donos[n] = donos[n] || []).push(u);
+  });
+
+  const opcoes = (sel) => team.map(m =>
+    `<option value="${attr(m.name)}"${m.name === sel ? ' selected' : ''}>${esc(m.name)}${m.hidden ? ' (oculto)' : ''}</option>`
+  ).join('');
+
+  const linhaConta = u => {
+    const alvo   = u.memberName || u.name;
+    const solta  = !nomes.has(alvo);
+    const dupla  = !solta && donos[alvo].length > 1;
+    const m      = memberOf(alvo);
+    const quantas = demandasDe(alvo);
+    const rever  = solta || quantas === 0;
+    return `<div class="lk-row${rever ? ' is-solta' : dupla ? ' is-dupla' : ''}">
+      <span class="av" style="width:32px;height:32px;font-size:12px;background:${attr(m.color || '#8E8E93')};color:${inkOn(m.color || '#8E8E93')};border-color:transparent" aria-hidden="true">${esc(avInits(u.name))}</span>
+      <div class="lk-id">
+        <strong>${esc(u.name)}</strong>
+        <span>${esc(u.email)}</span>
+      </div>
+      <div class="lk-pick">
+        <label class="sr-only" for="lk-${attr(u.uid)}">Pessoa do time de ${attr(u.name)}</label>
+        <select id="lk-${attr(u.uid)}" onchange="ligarConta('${attr(u.uid)}', this.value)">
+          <option value=""${solta ? ' selected' : ''}>— sem vínculo —</option>
+          ${opcoes(solta ? '' : alvo)}
+        </select>
+        <span class="lk-nota">${solta
+          ? `aponta para "${esc(alvo)}", que não está no time`
+          : quantas === 0
+            ? `"${esc(alvo)}" não tem nenhuma demanda — é a mesma pessoa que outra da lista?`
+            : `${plural(quantas, 'demanda', 'demandas')}${dupla ? ' · outra conta aponta para a mesma pessoa' : ''}`}</span>
+      </div>
+    </div>`;
+  };
+
+  const semConta = team.filter(m => !contas.some(u => (u.memberName || u.name) === m.name));
+
+  body.innerHTML = `
+    <section class="lk-sec">
+      <h3>Contas · ${contas.length}</h3>
+      ${contas.map(linhaConta).join('')}
+    </section>
+    <section class="lk-sec">
+      <h3>Ainda sem conta · ${semConta.length}</h3>
+      ${semConta.length
+        ? `<p class="lk-sub">Estas pessoas existem no time e aparecem nas demandas, mas ninguém se cadastrou com elas ainda.</p>
+           <div class="lk-chips">${semConta.map(m => {
+             const q = tasks.filter(t => (t.responsible || []).includes(m.name)).length;
+             return `<span class="lk-chip">${dotHTML(m.name)}${esc(m.name)}<b>${q}</b></span>`;
+           }).join('')}</div>`
+        : `<p class="lk-sub">Todo mundo do time já tem conta.</p>`}
+    </section>`;
+}
+
+/**
+ * Liga uma conta a uma pessoa do time — ou desliga, com valor vazio.
+ *
+ * Grava o valor recebido em vez de reler a memória, pelo mesmo motivo do
+ * `setUserStatus`: uma escrita intermediária repõe `users` a partir do banco e
+ * a gravação seguinte levaria o valor velho junto.
+ */
+function ligarConta(uid, memberName) {
+  if (!isAdmin()) return denied('Só administradores ligam contas a pessoas.');
+  const map = allUsers();
+  const u = map[uid];
+  if (!u) return;
+  const antes = u.memberName || u.name;
+  const alvo  = memberName || u.name;
+  if (alvo === antes) return;
+
+  const atualizado = {...u, memberName: alvo};
+  users = {...map, [uid]: atualizado};
+
+  // A pessoa de onde a conta saiu pode ter sido criada pela própria aprovação.
+  // Se ficou sem demanda nenhuma e sem outra conta apontando para ela, é
+  // duplicata e sai do time — senão o filtro enche de nomes fantasmas.
+  let limpou = false;
+  const orfa = team.find(m => m.name === antes);
+  const outraConta = Object.values(users).some(x => x.uid !== uid && (x.memberName || x.name) === antes);
+  if (orfa && demandasDe(antes) === 0 && !outraConta) {
+    team = team.filter(m => m.name !== antes);
+    if (fResp === antes) fResp = 'TIME';
+    saveTeam2();
+    limpou = true;
+  }
+
+  addLog('team', memberName
+    ? `Conta de ${u.name} ligada a ${alvo}${limpou ? ` (a pessoa "${antes}", sem demandas, saiu do time)` : ''}`
+    : `Conta de ${u.name} desligada de ${antes}`);
+  saveUserNode(uid, atualizado); saveLog();
+  syncUserFromStore();
+  buildFilters(); render();
+  renderLink(); updateLinkBadge(); refreshOpenPanels();
+  toast(memberName
+    ? `${u.name.split(' ')[0]} → ${alvo}${limpou ? `. "${antes}" saiu do time, estava vazia.` : ''}`
+    : `${u.name.split(' ')[0]} ficou sem vínculo`, {ms: 4000});
+}
 
 /** Administrador promove, rebaixa ou remove contas (na tela de Perfis). */
 function setUserAdmin(uid, value) {
@@ -1869,6 +2022,7 @@ function enterApp() {
   document.getElementById('authPass2').value = '';
   renderUserChip();
   updateAccessBadge();
+  updateLinkBadge();
   applyHideIcon();
   buildFilters();
   render();
@@ -2617,9 +2771,22 @@ function openAvForName(name) {
   if (idx < 0) return;
   openAvEdit(idx, modalStack.some(m => m.id === 'teamOverlay') ? 'team' : 'direct');
 }
+/**
+ * Abre o editor de avatar pelo nome da pessoa no time.
+ *
+ * Quando a conta aponta para um `memberName` que não existe no time, não há o
+ * que editar — e antes isso falhava **em silêncio**: o clique no lápis não
+ * fazia nada e não dizia por quê. Acontece de verdade com conta nova cujo nome
+ * digitado no cadastro não bate com ninguém da lista. A saída é o painel
+ * "Contas e pessoas", que é onde o vínculo se conserta.
+ */
 function openAvForNameFromProfile(name) {
   const idx = team.findIndex(m => m.name === name);
-  if (idx > -1) openAvEdit(idx, 'direct');
+  if (idx > -1) { openAvEdit(idx, 'direct'); return; }
+  toast(`"${name}" não está na lista do time, então não há avatar para editar. ` +
+        (isAdmin() ? 'Ligue a conta a uma pessoa em "Contas e pessoas".'
+                   : 'Peça a um administrador para ligar a sua conta a uma pessoa do time.'),
+        {tone: 'warn', ms: 6000});
 }
 function openAvEdit(idx, ctx) {
   editingAvIdx  = idx;
@@ -3365,6 +3532,7 @@ Object.assign(window, {
   // perfis, carga, log, tutorial, setup
   openProfiles, closeProfiles, renderProfiles,
   openAccess, closeAccess, renderAccess, approveUser, rejectUser, suspendUser,
+  openLink, closeLink, renderLink, ligarConta,
   openMe, closeMe, renderMe, deleteMyAccount,
   setMemberField, setStartDate, commitTeam, toggleMemberHidden,
   openDashboard, closeDashboard, renderDashboard, setDashAno,

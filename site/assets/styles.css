@@ -429,6 +429,63 @@ a.sr-only:focus-visible{
 .acc-tag.is-admin{background:var(--pur-t);color:var(--pur-i)}
 .btn-sm{min-height:30px;padding:0 11px;font-size:var(--t-sm)}
 
+/* ── Contas e pessoas ────────────────────────────────────────────────────
+   Vínculo solto é um problema silencioso — a pessoa entra e não vê demanda
+   nenhuma como sua. Por isso a linha correspondente é marcada, e o item do
+   menu ganha um contador laranja. */
+.menu-badge.is-warn{background:var(--org-solid,var(--org))}
+.lk-sec{margin-bottom:22px}
+.lk-sec:last-child{margin-bottom:0}
+.lk-sec h3{
+  font-size:var(--t-sm);font-weight:650;color:var(--txs);
+  letter-spacing:.02em;text-transform:uppercase;margin-bottom:9px;
+}
+.lk-sub{font-size:var(--t-sm);color:var(--txt);margin:-4px 0 10px}
+.lk-row{
+  display:flex;align-items:center;gap:11px;
+  padding:10px 12px;margin-bottom:7px;
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  border-radius:var(--r-md);
+}
+.lk-row:last-child{margin-bottom:0}
+.lk-row.is-solta{
+  border-color:var(--org);
+  box-shadow:inset 3px 0 0 var(--org);
+}
+.lk-row.is-dupla{box-shadow:inset 3px 0 0 var(--line2)}
+.lk-id{min-width:0;flex:1}
+.lk-id strong{
+  display:block;font-size:var(--t-md);font-weight:600;color:var(--tx);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.lk-id span{
+  display:block;font-size:var(--t-sm);color:var(--txs);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.lk-pick{display:flex;flex-direction:column;gap:3px;flex-shrink:0;align-items:flex-end}
+.lk-pick select{
+  min-height:32px;padding:0 9px;
+  background:var(--surf);border:var(--hair) solid var(--line2);
+  border-radius:var(--r-sm);color:var(--tx);font-size:var(--t-sm);
+}
+.lk-pick select:focus{border-color:var(--acc);outline:none}
+.lk-nota{font-size:var(--t-xs);color:var(--txt);text-align:right}
+.lk-row.is-solta .lk-nota{color:var(--org-i)}
+.lk-chips{display:flex;flex-wrap:wrap;gap:7px}
+.lk-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:var(--r-pill);
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  font-size:var(--t-sm);color:var(--tx);
+}
+.lk-chip b{color:var(--txs);font-variant-numeric:tabular-nums;font-weight:650}
+
+@media (max-width:560px){
+  .lk-row{flex-wrap:wrap}
+  .lk-pick{width:100%;align-items:stretch}
+  .lk-nota{text-align:left}
+}
+
 /* ── Sala de espera ──────────────────────────────────────────────────── */
 .wait-badge{
   width:52px;height:52px;border-radius:50%;
