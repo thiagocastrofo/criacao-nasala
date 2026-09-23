@@ -611,6 +611,47 @@ Regra associada: `openAvForNameFromProfile` **não pode falhar calada**. Quando
 o `memberName` não existe no time não há avatar para editar, e antes o clique
 no lápis não fazia nada nem dizia por quê. Hoje avisa e aponta para este painel.
 
+### O Firebase recusa `undefined`, e recusa de forma síncrona
+
+Isto derrubou a troca de cor e levou três rodadas para ser achado, porque o
+sintoma enganava: a cor mudava na tela e voltava ao recarregar.
+
+O Firebase **não guarda `null`** — ele some com a chave. Quem lê o time de
+volta recebe o membro sem `svg`, e `m.svg` vira `undefined`. Na hora de
+gravar, o Firebase **recusa `undefined`** e lança:
+
+```
+set failed: value argument contains undefined in property 'demandas.team.2.svg'
+```
+
+E lança **de forma síncrona**, antes de devolver promessa — então o
+`.catch()` do `writeNode` nunca via nada. A exceção subia e matava o resto do
+`saveAv`: o objeto em memória já tinha a cor nova (daí a tela mudar), mas
+nada era gravado, e `saveLog`, `render` e `refreshOpenPanels` nem rodavam.
+
+Três defesas, todas necessárias:
+
+1. `normalizeMember` preenche `svg`, `startDate` e `role` na **leitura**.
+   Fecha o ciclo na origem.
+2. `semUndefined()` troca todo `undefined` por `null`, fundo a fundo, antes de
+   qualquer escrita. Rede de proteção para os campos que eu não previ.
+3. `writeNode` embrulha a chamada num `try`. Sem isso, um erro de validação
+   continua derrubando a função que chamou.
+
+**Por que nenhum teste pegou:** o Firebase falso aceitava `undefined` de boa.
+Um dublê mais permissivo que o original não testa o original — ele testa uma
+fantasia. Hoje `testes/firebase-falso.js` recusa igual, com a mesma mensagem,
+e `testes/v16.mjs` monta o time no formato que o banco devolve de verdade,
+sem `svg`.
+
+### Cor personalizada: `.field input` vence por especificidade
+
+O controle novo usa `.field .av-custom-dot` e `.field .av-hex`, com o `.field`
+na frente de propósito. Existe um `.field input {width:100%}` mais acima no
+arquivo, e sem o prefixo ele vence — a bolinha da cor estica e vira uma elipse
+atravessando a janela. Também precisa de `min-height` próprio, porque a mesma
+regra genérica impõe 40px.
+
 ---
 
 ## Hospedagem (decidido em set/2026)

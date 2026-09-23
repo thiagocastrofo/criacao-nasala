@@ -55,14 +55,34 @@
     return {val: () => v, exists: () => v !== null && v !== undefined};
   };
 
+  /**
+   * O Firebase de verdade RECUSA `undefined` e lança de forma SÍNCRONA, antes
+   * de devolver promessa — nenhum `.catch()` pega. Um falso que aceitasse
+   * `undefined` deixaria passar exatamente o bug que derrubou a troca de cor,
+   * então ele recusa igual, com a mesma mensagem.
+   */
+  function recusarUndefined(valor, caminho) {
+    const ver = (v, onde) => {
+      if (v === undefined) {
+        throw new Error(`set failed: value argument contains undefined in property '${onde}'`);
+      }
+      if (v && typeof v === 'object') {
+        for (const [k, x] of Object.entries(v)) ver(x, `${onde}.${k}`);
+      }
+    };
+    ver(valor, String(caminho).replace(/\//g, '.'));
+  }
+
   const db = {
     getDatabase: () => ({}),
     ref: (_d, caminho) => ({caminho: caminho || ''}),
     get: async r => snap(r.caminho),
-    set: async (r, v) => gravar(r.caminho, v),
+    set: (r, v) => { recusarUndefined(v, r.caminho); return Promise.resolve(gravar(r.caminho, v)); },
     remove: async r => gravar(r.caminho, null),
-    update: async (r, obj) => {
+    update: (r, obj) => {
+      recusarUndefined(obj, r.caminho);
       for (const [k, v] of Object.entries(obj)) gravar(`${r.caminho}/${k}`, v);
+      return Promise.resolve();
     },
     onValue: (r, cb, err) => {
       const o = {caminho: r.caminho, cb};

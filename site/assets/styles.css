@@ -429,6 +429,51 @@ a.sr-only:focus-visible{
 .acc-tag.is-admin{background:var(--pur-t);color:var(--pur-i)}
 .btn-sm{min-height:30px;padding:0 11px;font-size:var(--t-sm)}
 
+/* ── Cor personalizada no editor de avatar ───────────────────────────────
+   Os seletores levam `.field` na frente de propósito: existe um
+   `.field input {width:100%}` mais acima, e sem o prefixo ele vence por
+   especificidade — a bolinha estica e vira uma elipse atravessando a janela.
+   O seletor nativo pintava a caixa inteira, o que lia como um bloco de cor
+   sem função. Aqui ele vira só a amostra redonda; o texto diz o que a coisa
+   é, e o campo hex fica do lado para quem prefere digitar. */
+.av-custom{
+  display:flex;align-items:center;gap:11px;
+  width:100%;padding:9px 11px;margin-top:10px;
+  background:var(--surf2);border:var(--hair) solid var(--line);
+  border-radius:var(--r-md);
+}
+.field .av-custom-dot{
+  width:32px;height:32px;min-height:32px;flex-shrink:0;padding:0;cursor:pointer;
+  border:var(--hair) solid var(--line2);border-radius:50%;
+  background:none;appearance:none;-webkit-appearance:none;
+}
+/* Sem isto o Chrome deixa uma moldura branca dentro do círculo. */
+.field .av-custom-dot::-webkit-color-swatch-wrapper{padding:0}
+.field .av-custom-dot::-webkit-color-swatch{border:none;border-radius:50%}
+.field .av-custom-dot::-moz-color-swatch{border:none;border-radius:50%}
+.field .av-custom-dot:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+.av-custom-txt{display:flex;flex-direction:column;min-width:0;flex:1}
+.av-custom-tit{font-size:var(--t-md);color:var(--tx);font-weight:600;line-height:1.3}
+.av-custom-sub{font-size:var(--t-xs);color:var(--txt);line-height:1.35}
+/* O rótulo é curto de propósito: cabe em uma linha até em tela estreita. */
+
+.field .av-hex{
+  width:11ch;flex-shrink:0;min-height:32px;padding:0 8px;
+  background:var(--surf);border:var(--hair) solid var(--line2);
+  border-radius:var(--r-sm);color:var(--tx);
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:var(--t-sm);text-transform:uppercase;text-align:center;
+}
+.field .av-hex:focus{border-color:var(--acc);outline:none}
+.field .av-hex.is-bad{border-color:var(--red);color:var(--red-i)}
+
+@media (max-width:420px){
+  .av-custom{flex-wrap:wrap}
+  .av-custom-txt{order:3;width:100%;flex:none}
+  .field .av-hex{width:auto;flex:1}
+}
+
 /* ── Contas e pessoas ────────────────────────────────────────────────────
    Vínculo solto é um problema silencioso — a pessoa entra e não vê demanda
    nenhuma como sua. Por isso a linha correspondente é marcada, e o item do

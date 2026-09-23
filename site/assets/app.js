@@ -1028,7 +1028,7 @@ function escutarDados() {
  */
 function semearBanco() {
   if (!isAdmin()) return;
-  fb.update(fbRef, {tasks: byId(tasks), team, appTitle, log, schema: 2})
+  fb.update(fbRef, semUndefined({tasks: byId(tasks), team, appTitle, log, schema: 2}))
     .catch(erroDeSync);
 }
 function pararEscutaDeDados() { if (dadosOff) { dadosOff(); dadosOff = null; } }
@@ -1129,18 +1129,46 @@ function cacheLocal() {
   try { localStorage.setItem('demandas-data', JSON.stringify({tasks, team, appTitle, log, users})); } catch(_) {}
 }
 
+/**
+ * Troca todo `undefined` por `null`, fundo a fundo.
+ *
+ * O Firebase RECUSA `undefined` e, pior, lança de forma **síncrona** — antes
+ * de devolver promessa, então nenhum `.catch()` pega. Foi assim que trocar a
+ * cor de alguém parou de funcionar: o time vinha do banco sem o campo `svg`
+ * (o Firebase não guarda nulo, some com a chave), `team[2].svg` virava
+ * `undefined`, e o `fb.set` estourava no meio do `saveAv`. A cor mudava na
+ * tela, porque o objeto em memória já tinha sido alterado, e voltava ao
+ * recarregar. Nenhum aviso para quem estava usando.
+ */
+function semUndefined(v) {
+  if (v === undefined) return null;
+  if (v === null || typeof v !== 'object') return v;
+  if (Array.isArray(v)) return v.map(semUndefined);
+  const out = {};
+  for (const [k, x] of Object.entries(v)) out[k] = semUndefined(x);
+  return out;
+}
+
 /** Grava um nó só do banco. `value === null` apaga. */
 function writeNode(path, value) {
   cacheLocal();
   if (!fbReady || !fb) return Promise.resolve();
   showSync('saving', 'Salvando…');
-  const p = value === null
-    ? fb.remove(fb.ref(fbDb, `${FB_PATH}/${path}`))
-    : fb.set(fb.ref(fbDb, `${FB_PATH}/${path}`), value);
-  return p.then(() => showSync('ok', 'Salvo')).catch(e => {
+  try {
+    const p = value === null
+      ? fb.remove(fb.ref(fbDb, `${FB_PATH}/${path}`))
+      : fb.set(fb.ref(fbDb, `${FB_PATH}/${path}`), semUndefined(value));
+    return p.then(() => showSync('ok', 'Salvo')).catch(e => {
+      console.error('Erro ao salvar', path, e);
+      showSync('error', 'Erro ao salvar');
+    });
+  } catch (e) {
+    // O Firebase valida o argumento de forma síncrona; sem este try, um erro
+    // aqui derruba o resto da função que chamou.
     console.error('Erro ao salvar', path, e);
     showSync('error', 'Erro ao salvar');
-  });
+    return Promise.resolve();
+  }
 }
 
 const saveTaskNode = t  => writeNode(`tasks/${t.id}`, t);
@@ -1206,7 +1234,17 @@ function refreshOpenPanels() {
 }
 
 const normalizeTask   = t => ({...t, responsible: Array.isArray(t.responsible) ? t.responsible : [t.responsible].filter(Boolean)});
-const normalizeMember = m => typeof m === 'string' ? {name:m, color:'#888', svg:null, startDate:'', role:''} : m;
+/**
+ * Membro sempre com os cinco campos preenchidos.
+ *
+ * O Firebase não guarda `null`: some com a chave. Quem lê de volta recebe o
+ * objeto sem `svg`, e `m.svg` vira `undefined` — que é justamente o que o
+ * Firebase recusa na hora de gravar. Preencher na leitura fecha o ciclo.
+ */
+const normalizeMember = m => typeof m === 'string'
+  ? {name: m, color: '#888', svg: null, startDate: '', role: ''}
+  : {svg: null, startDate: '', role: '', color: '#888', ...m,
+     svg: m.svg ?? null, startDate: m.startDate ?? '', role: m.role ?? ''};
 
 // ═══════════════════════════════════════════════════
 //  TELA DE CONFIGURAÇÃO
@@ -2797,7 +2835,7 @@ function openAvEdit(idx, ctx) {
   document.getElementById('colorSwatches').innerHTML = PALETTE.map(c =>
     `<button type="button" class="swatch" style="background:${c}" onclick="setAvColor('${c}')"
       aria-pressed="${c.toLowerCase() === (m.color || '').toLowerCase()}" aria-label="Cor ${c}"></button>`).join('');
-  document.getElementById('customColor').value = /^#[0-9a-f]{6}$/i.test(m.color || '') ? m.color : '#888888';
+  sincronizarCampoDeCor(m.color);
   document.getElementById('removeSvgBtn').hidden = !avDraftSvg;
   updateAvPreview();
   openOverlay('avOverlay');
@@ -2805,9 +2843,41 @@ function openAvEdit(idx, ctx) {
 function closeAv() { closeOverlay('avOverlay'); }
 function setAvColor(c) {
   avDraftColor = c;
+  sincronizarCampoDeCor(c);
+  marcarAmostra(c);
+  updateAvPreview();
+}
+
+/**
+ * Hex digitado à mão. Só vale quando está completo e bem formado — enquanto a
+ * pessoa digita, "#1", "#12"… não são cor, e trocar a prévia a cada tecla
+ * faria a bolinha piscar. O campo fica marcado enquanto não fechar.
+ */
+function setHexColor(v) {
+  const txt = String(v || '').trim();
+  const bom = /^#?[0-9a-f]{6}$/i.test(txt);
+  const campo = document.getElementById('hexInput');
+  if (campo) campo.classList.toggle('is-bad', !!txt && !bom);
+  if (!bom) return;
+  avDraftColor = txt.startsWith('#') ? txt : '#' + txt;
+  const picker = document.getElementById('customColor');
+  if (picker) picker.value = avDraftColor.toLowerCase();
+  marcarAmostra(avDraftColor);
+  updateAvPreview();
+}
+
+function marcarAmostra(c) {
   document.querySelectorAll('#colorSwatches .swatch').forEach(s =>
     s.setAttribute('aria-pressed', String(s.style.backgroundColor === hexToRgb(c))));
-  updateAvPreview();
+}
+
+/** Deixa o seletor do sistema e o campo hex mostrando a mesma cor. */
+function sincronizarCampoDeCor(c) {
+  const hex = /^#[0-9a-f]{6}$/i.test(c || '') ? c : '#888888';
+  const picker = document.getElementById('customColor');
+  const campo  = document.getElementById('hexInput');
+  if (picker) picker.value = hex.toLowerCase();
+  if (campo) { campo.value = hex.toUpperCase(); campo.classList.remove('is-bad'); }
 }
 function hexToRgb(h) {
   const m = /^#?([0-9a-f]{6})$/i.exec(h);
@@ -3528,7 +3598,7 @@ Object.assign(window, {
   openTeam, closeTeam, addMember, delMember, saveTeam, toggleDraftHidden,
   // avatar
   openAvEdit, openAvForName, openAvForNameFromProfile, closeAv,
-  setAvColor, removeAvSvg, handleSvg, saveAv,
+  setAvColor, setHexColor, removeAvSvg, handleSvg, saveAv,
   // perfis, carga, log, tutorial, setup
   openProfiles, closeProfiles, renderProfiles,
   openAccess, closeAccess, renderAccess, approveUser, rejectUser, suspendUser,
