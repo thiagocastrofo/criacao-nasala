@@ -192,6 +192,13 @@ svg{display:block;flex-shrink:0}
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;
   overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
 }
+/* `.field input` (0-1-1) vence `.sr-only` (0-1-0) e devolve `width:100%` ao
+   campo de arquivo escondido — que então transborda o modal e cria uma barra
+   de rolagem horizontal. Uma utilidade como esta precisa ganhar onde compete;
+   é a segunda vez que essa regra genérica morde neste arquivo. */
+.field input.sr-only, .field select.sr-only, .field textarea.sr-only{
+  width:1px;height:1px;min-height:0;padding:0;margin:-1px;border:0;
+}
 /* o atalho de pular navegação tem de ficar visível quando recebe foco —
    senão quem usa só teclado não sabe onde está */
 a.sr-only:focus-visible{
@@ -468,10 +475,13 @@ a.sr-only:focus-visible{
 .field .av-hex:focus{border-color:var(--acc);outline:none}
 .field .av-hex.is-bad{border-color:var(--red);color:var(--red-i)}
 
-@media (max-width:420px){
-  .av-custom{flex-wrap:wrap}
-  .av-custom-txt{order:3;width:100%;flex:none}
-  .field .av-hex{width:auto;flex:1}
+/* Estreito: bolinha e rótulo seguem juntos na primeira linha, e o campo hex
+   desce inteiro para a segunda. Deixar o hex subir esticava um campo de sete
+   caracteres pela largura toda. */
+@media (max-width:440px){
+  .av-custom{flex-wrap:wrap;row-gap:9px}
+  .av-custom-txt{order:2}
+  .field .av-hex{order:3;width:100%;flex:none;text-align:left;padding:0 11px}
 }
 
 /* ── Contas e pessoas ────────────────────────────────────────────────────

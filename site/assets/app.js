@@ -18,7 +18,10 @@ const FB_PATH = "demandas"; // chave no Realtime Database
 // ═══════════════════════════════════════════════════
 const CATS    = ['NSCO','CIDADE','EVENTOS','OUTROS'];
 const SCYCLE  = ['pendente','em andamento','concluído'];
-const PALETTE = ['#FF6B6B','#FF9F43','#F9CA24','#6AB04C','#4ECDC4','#45B7D1','#0A84FF','#BF5AF2','#FF453A','#636E72'];
+// Oito cores, uma linha só no editor de avatar. Saíram o coral (#FF6B6B) e
+// o turquesa (#4ECDC4), que eram os vizinhos mais próximos do vermelho e do
+// azul-aço — a lista perde pouco em variedade e ganha em leitura.
+const PALETTE = ['#FF9F43','#F9CA24','#6AB04C','#45B7D1','#0A84FF','#BF5AF2','#FF453A','#636E72'];
 
 // ═══════════════════════════════════════════════════
 //  ESTADO

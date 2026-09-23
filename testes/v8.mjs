@@ -18,11 +18,22 @@ await page.locator('#btnAccount').click(); await page.waitForTimeout(250);
 await page.locator('#moreMenu button:has-text("Meu perfil")').click(); await page.waitForTimeout(600);
 const antes = await page.locator('#meBody .av').first().evaluate(e=>getComputedStyle(e).backgroundColor);
 await page.locator('.av-edit-btn').first().click(); await page.waitForTimeout(450);
-await page.locator('#colorSwatches .swatch').nth(3).click(); await page.waitForTimeout(250);
+// Escolhe uma bolinha que NÃO seja a cor atual. Fixar o índice quebra toda
+// vez que a paleta muda de tamanho — e quebrou.
+const alvoCor = await page.evaluate(atual => {
+  const sw = [...document.querySelectorAll('#colorSwatches .swatch')];
+  const i = sw.findIndex(s => getComputedStyle(s).backgroundColor !== atual);
+  return {i, cor: getComputedStyle(sw[i]).backgroundColor};
+}, antes);
+await page.locator('#colorSwatches .swatch').nth(alvoCor.i).click(); await page.waitForTimeout(250);
 await page.locator('#avOverlay .btn-primary').click(); await page.waitForTimeout(700);
 const depois = await page.locator('#meBody .av').first().evaluate(e=>getComputedStyle(e).backgroundColor);
 check('cor aparece na hora no perfil', antes !== depois, `${antes} → ${depois}`);
-check('cor gravada', (await page.evaluate(()=>JSON.parse(localStorage.getItem('demandas-data')).team.find(m=>m.name==='Thiago').color)) === '#6AB04C');
+const gravada = await page.evaluate(()=>JSON.parse(localStorage.getItem('demandas-data')).team.find(m=>m.name==='Thiago').color);
+const gravadaRgb = await page.evaluate(h => { const d=document.createElement('div');
+  d.style.color=h; document.body.appendChild(d);
+  const c=getComputedStyle(d).color; d.remove(); return c; }, gravada);
+check('cor gravada', gravadaRgb === alvoCor.cor, `${gravada} · ${gravadaRgb} vs ${alvoCor.cor}`);
 await page.locator('.me-actions .btn').click(); await page.waitForTimeout(900);
 check('sair funciona a partir do perfil', await page.locator('#authScreen').isVisible());
 await page.fill('#authEmail','thiago@nasala.com.br'); await page.fill('#authPass','Thiago@290692');

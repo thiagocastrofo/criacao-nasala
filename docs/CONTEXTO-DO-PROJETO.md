@@ -644,13 +644,39 @@ fantasia. Hoje `testes/firebase-falso.js` recusa igual, com a mesma mensagem,
 e `testes/v16.mjs` monta o time no formato que o banco devolve de verdade,
 sem `svg`.
 
-### Cor personalizada: `.field input` vence por especificidade
+### `.field input {width:100%}` é uma armadilha recorrente
 
-O controle novo usa `.field .av-custom-dot` e `.field .av-hex`, com o `.field`
-na frente de propósito. Existe um `.field input {width:100%}` mais acima no
-arquivo, e sem o prefixo ele vence — a bolinha da cor estica e vira uma elipse
-atravessando a janela. Também precisa de `min-height` próprio, porque a mesma
-regra genérica impõe 40px.
+Essa regra genérica (especificidade 0-1-1) vence qualquer classe solta
+(0-1-0) aplicada a um `input` dentro de `.field`. Mordeu duas vezes:
+
+- **A bolinha da cor personalizada** esticava e virava uma elipse atravessando
+  a janela. Por isso os seletores são `.field .av-custom-dot` e
+  `.field .av-hex`, e a bolinha declara o próprio `min-height` — a regra
+  genérica também impõe 40px de altura.
+- **O `.sr-only` do campo de arquivo do SVG** recebia `width:100%`, ficava
+  maior que o modal e criava uma barra de rolagem horizontal. A correção é
+  `.field input.sr-only` (0-2-1), junto da regra da utilidade.
+
+Antes de estilizar qualquer `input` dentro de `.field`, confira a
+especificidade — ou o resultado é silencioso e estranho.
+
+### Paleta de avatares: oito cores, uma linha
+
+Saíram o coral `#FF6B6B` e o turquesa `#4ECDC4`. Além de caber numa linha só,
+a remoção **melhorou** a separação: o pior par para visão normal era
+`#45B7D1↔#4ECDC4` (ΔE 7,2) e passou a `#F9CA24↔#FF9F43` (ΔE 11,1).
+
+O validador do dataviz ainda reprova a paleta, e é bom saber por quê antes de
+mexer: ele mede paleta de **gráfico**, onde a cor é a única identidade. No
+avatar a cor nunca está sozinha — vem com as iniciais dentro do círculo e o
+nome do lado. O par `#BF5AF2↔#0A84FF` (ΔE 4,3 em protanopia) é o mais fraco e
+já existia antes; quem depende dele para distinguir duas pessoas tem as
+iniciais como segundo canal.
+
+**Teste que fixa índice de bolinha quebra.** `v8.mjs` clicava na quarta cor e
+parou de funcionar quando a paleta encolheu, porque o índice passou a cair na
+cor que a pessoa já tinha. Hoje ele procura a primeira bolinha diferente da
+cor atual.
 
 ---
 
